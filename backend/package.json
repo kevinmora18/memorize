@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "memorize-evolutivo-backend": "file:.."
+  }
+}
