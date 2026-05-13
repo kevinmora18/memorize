@@ -11,12 +11,12 @@ interface GameBoardProps {
   onBackToMenu: () => void;
 }
 
-const universeConfig = {
-  volcania: { name: 'Volcania', gradient: 'from-orange-600/20 via-red-600/20 to-amber-600/20', bgGradient: 'from-orange-950 via-red-950 to-black', glowColor: '#ff4500', symbols: ['🔥', '🌋', '💥', '⚡', '☄️', '🔴', '🟠', '🟡'] },
-  frostheim: { name: 'Frostheim', gradient: 'from-cyan-400/20 via-blue-500/20 to-indigo-500/20', bgGradient: 'from-cyan-950 via-blue-950 to-black', glowColor: '#00d4ff', symbols: ['❄️', '🧊', '💎', '🔷', '🔹', '⭐', '💠', '🌨️'] },
-  neural: { name: 'Neural Nexus', gradient: 'from-emerald-400/20 via-teal-500/20 to-cyan-500/20', bgGradient: 'from-emerald-950 via-teal-950 to-black', glowColor: '#00ff88', symbols: ['🧠', '🔮', '💚', '🟢', '✨', '⚛️', '🌐', '📡'] },
-  verdalis: { name: 'Verdalis', gradient: 'from-lime-500/20 via-green-500/20 to-emerald-600/20', bgGradient: 'from-lime-950 via-green-950 to-black', glowColor: '#7fff00', symbols: ['🌿', '🍃', '🌱', '🌳', '🦋', '🐛', '🌺', '🌸'] },
-  lunaris: { name: 'Lunaris', gradient: 'from-purple-400/20 via-violet-500/20 to-purple-600/20', bgGradient: 'from-purple-950 via-violet-950 to-black', glowColor: '#b19cd9', symbols: ['🌙', '⭐', '🌟', '✨', '💜', '🟣', '🔮', '🪐'] },
+const universeConfig: Record<Universe, { name: string; gradient: string; bgGradient: string; glowColor: string; symbols: string[] }> = {
+  volcania: { name: 'Volcania', gradient: 'from-orange-600/20 via-red-600/20 to-amber-600/20', bgGradient: 'from-orange-950 via-red-950 to-black', glowColor: '#ff4500', symbols: ['🍎', '🍓', '🍒', '🍅', '🍉', '🌶️', '🍄', '🎈'] },
+  frostheim: { name: 'Frostheim', gradient: 'from-cyan-400/20 via-blue-500/20 to-indigo-500/20', bgGradient: 'from-cyan-950 via-blue-950 to-black', glowColor: '#00d4ff', symbols: ['🫐', '🍇', '🍆', '🍬', '🪁', '💎', '🐟', '🧊'] },
+  neural: { name: 'Neural Nexus', gradient: 'from-emerald-400/20 via-teal-500/20 to-cyan-500/20', bgGradient: 'from-emerald-950 via-teal-950 to-black', glowColor: '#00ff88', symbols: ['🍏', '🍐', '🥝', '🍈', '🥒', '🥦', '🔋', '🧩'] },
+  verdalis: { name: 'Verdalis', gradient: 'from-lime-500/20 via-green-500/20 to-emerald-600/20', bgGradient: 'from-lime-950 via-green-950 to-black', glowColor: '#7fff00', symbols: ['🍋', '🍌', '🍍', '🌻', '🧀', '🌽', '🚕', '☀️'] },
+  lunaris: { name: 'Lunaris', gradient: 'from-purple-400/20 via-violet-500/20 to-purple-600/20', bgGradient: 'from-purple-950 via-violet-950 to-black', glowColor: '#b19cd9', symbols: ['🍑', '🍊', '🥭', '🥕', '🎃', '🏀', '🦊', '🐅'] },
 };
 
 type CardType = { id: number; symbol: string; isFlipped: boolean; isMatched: boolean; isBomb?: boolean; isBroken?: boolean };
@@ -33,15 +33,15 @@ export function GameBoard({ universe, level, onLevelComplete, onBackToMenu }: Ga
   useEffect(() => {
     const symbols = [...config.symbols].slice(0, cardCount / 2);
     const duplicatedSymbols = [...symbols, ...symbols];
-    
+
     if (level === 1) {
       duplicatedSymbols.push('💣');
     }
 
-    const shuffled = duplicatedSymbols.sort(() => Math.random() - 0.5).map((symbol, index) => ({ 
-      id: index, 
-      symbol, 
-      isFlipped: false, 
+    const shuffled = duplicatedSymbols.sort(() => Math.random() - 0.5).map((symbol, index) => ({
+      id: index,
+      symbol,
+      isFlipped: false,
       isMatched: false,
       isBomb: symbol === '💣',
       isBroken: false
@@ -50,7 +50,7 @@ export function GameBoard({ universe, level, onLevelComplete, onBackToMenu }: Ga
     setMatchedPairs(0);
     setMoves(0);
     setFlippedCards([]);
-  }, [level, universe]);
+  }, [level, universe, cardCount, config.symbols]);
 
   const handleCardClick = (id: number) => {
     const cardIndex = cards.findIndex(c => c.id === id);
@@ -64,19 +64,19 @@ export function GameBoard({ universe, level, onLevelComplete, onBackToMenu }: Ga
       const newCards = [...cards];
       newCards[cardIndex] = { ...clickedCard, isFlipped: true, isMatched: true }; // Lo marcamos temporalmente como matched para evitar clics dobles
       setCards(newCards);
-      
+
       setTimeout(() => {
         setCards(prevCards => {
           const afterExplosion = prevCards.map(c => c.id === id ? { ...c, isBroken: true, symbol: '💥' } : c);
-          
+
           const toShuffle = afterExplosion.filter(c => !c.isMatched && !c.isBroken);
           const fixed = afterExplosion.filter(c => c.isMatched || c.isBroken);
-          
+
           toShuffle.sort(() => Math.random() - 0.5);
-          
+
           return [...fixed, ...toShuffle].sort(() => Math.random() - 0.5); // Revolvemos todo para que cambien de posición visualmente en la cuadrícula
         });
-        
+
         setFlippedCards([]);
       }, 1000); // Explotará después de 1 segundo
       return;
@@ -93,10 +93,10 @@ export function GameBoard({ universe, level, onLevelComplete, onBackToMenu }: Ga
       setMoves(moves + 1);
       const firstIndex = cards.findIndex(c => c.id === newFlipped[0]);
       const secondIndex = cards.findIndex(c => c.id === newFlipped[1]);
-      
+
       if (cards[firstIndex].symbol === cards[secondIndex].symbol) {
         setTimeout(() => {
-          setCards(prevCards => prevCards.map(c => 
+          setCards(prevCards => prevCards.map(c =>
             (c.id === newFlipped[0] || c.id === newFlipped[1]) ? { ...c, isMatched: true } : c
           ));
           setFlippedCards([]);
@@ -108,7 +108,7 @@ export function GameBoard({ universe, level, onLevelComplete, onBackToMenu }: Ga
         }, 800);
       } else {
         setTimeout(() => {
-          setCards(prevCards => prevCards.map(c => 
+          setCards(prevCards => prevCards.map(c =>
             (c.id === newFlipped[0] || c.id === newFlipped[1]) ? { ...c, isFlipped: false } : c
           ));
           setFlippedCards([]);

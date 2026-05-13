@@ -9,11 +9,12 @@ import { MainMenu } from './components/MainMenu';
 import { GameBoard } from './components/GameBoard';
 import { BossFight } from './components/BossFight';
 import { RewardScreen } from './components/RewardScreen';
+import { GameScreen } from './components/GameScreen';
 import socket from './lib/socket';
 
 export type Universe = 'volcania' | 'frostheim' | 'neural' | 'verdalis' | 'lunaris';
 
-export type GameScreen = 'login' | 'register' | 'lobby' | 'roomWaiting' | 'multiplayerGame' | 'finalResults' | 'menu' | 'game' | 'boss' | 'reward';
+export type GameScreen = 'login' | 'register' | 'lobby' | 'roomWaiting' | 'multiplayerGame' | 'finalResults' | 'menu' | 'game' | 'boss' | 'reward' | 'classic';
 
 export type Player = {
   id: string;
@@ -35,18 +36,15 @@ export type Room = {
 
 export default function App() {
   const API_BASE = (import.meta.env.VITE_API_BASE as string) || 'http://localhost:5175';
-  const [currentScreen, setCurrentScreen] = useState<GameScreen>('register');
+  const [currentScreen, setCurrentScreen] = useState<GameScreen>('login');
   const [currentUser, setCurrentUser] = useState<Player | null>(null);
   const [currentRoom, setCurrentRoom] = useState<Room | null>(null);
   
-  // Gestión centralizada de salas
   const [rooms, setRooms] = useState<Room[]>([]);
 
   useEffect(() => {
-    // Socket already connects via singleton; listen for updates
     socket.on('rooms:update', (data: Room[]) => setRooms(data));
     socket.on('player:joined', (payload: any) => {
-      // opcional: mostrar notificaciones
       console.log('player joined', payload);
     });
     socket.on('room:started', (payload: any) => {
@@ -54,7 +52,6 @@ export default function App() {
       setCurrentScreen('multiplayerGame');
     });
 
-    // request initial rooms via fetch as fallback
     (async () => {
       try {
         const res = await fetch(`${API_BASE}/api/rooms`);
@@ -71,12 +68,10 @@ export default function App() {
     };
   }, []);
 
-  // Estados del juego individual
   const [selectedUniverse, setSelectedUniverse] = useState<Universe | null>(null);
   const [currentLevel, setCurrentLevel] = useState(1);
   const [unlockedPowers, setUnlockedPowers] = useState<Universe[]>([]);
 
-  // Sincronizar currentRoom con la lista de rooms
   useEffect(() => {
     if (currentRoom) {
       const updatedRoomData = rooms.find(r => r.id === currentRoom.id);
@@ -109,7 +104,6 @@ export default function App() {
     })();
   };
 
-  // Generar código único para sala
   const generateRoomCode = (): string => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let code = '';
@@ -137,7 +131,6 @@ export default function App() {
           setCurrentUser({ ...currentUser, teamId: 1 });
           setCurrentRoom(created);
           setCurrentScreen('roomWaiting');
-          // join socket room
           socket.emit('joinRoom', created.id);
           return;
         }
@@ -145,7 +138,6 @@ export default function App() {
         console.error('Error creating room', err);
       }
 
-      // Fallback local
       const newRoom: Room = {
         id: Date.now().toString(),
         name,
@@ -186,7 +178,6 @@ export default function App() {
         console.error('Error joining room', err);
       }
 
-      // Fallback local behavior
       const playerToUpdate = { ...currentUser, teamId };
       setRooms(prevRooms => prevRooms.map(r => {
         if (r.id === room.id) {
@@ -224,7 +215,6 @@ export default function App() {
         console.error('Error changing team', err);
       }
 
-      // Fallback local
       setCurrentUser(prevUser => prevUser ? { ...prevUser, teamId } : null);
       setRooms(prevRooms => 
         prevRooms.map(r => {
@@ -255,7 +245,6 @@ export default function App() {
         console.error('Error starting game', err);
       }
 
-      // Fallback local
       const updatedRoom = { ...currentRoom, isStarted: true };
       setRooms(prevRooms => prevRooms.map(r => r.id === currentRoom.id ? updatedRoom : r));
       setCurrentScreen('multiplayerGame');
@@ -264,7 +253,6 @@ export default function App() {
 
   const handleBackToLobby = () => {
     if (currentUser && currentRoom) {
-      // Remover jugador de la sala
       const updatedRoom = {
         ...currentRoom,
         players: currentRoom.players.filter(p => p.id !== currentUser.id),
@@ -289,7 +277,6 @@ export default function App() {
     setCurrentScreen('login');
   };
 
-  // Funciones del juego individual
   const handleUniverseSelect = (universe: Universe) => {
     setSelectedUniverse(universe);
     setCurrentScreen('game');
@@ -339,11 +326,7 @@ export default function App() {
 
       {currentScreen === 'lobby' && currentUser && (
         <LobbyScreen 
-          currentUser={currentUser}
-          rooms={rooms}
-          onCreateRoom={handleCreateRoom}
-          onJoinRoom={handleJoinRoom}
-          onGoToSinglePlayer={handleGoToSinglePlayer}
+          onStartClassic={() => setCurrentScreen('classic')}
           onLogout={handleLogout}
         />
       )}
@@ -398,12 +381,18 @@ export default function App() {
           onBackToMenu={handleBackToMenu}
         />
       )}
-      
+
       {currentScreen === 'reward' && selectedUniverse && (
         <RewardScreen
           universe={selectedUniverse}
           onBackToMenu={handleBackToMenu}
           onReplay={handleReplay}
+        />
+      )}
+      
+      {currentScreen === 'classic' && (
+        <GameScreen
+          onBackToLobby={() => setCurrentScreen('lobby')}
         />
       )}
     </div>

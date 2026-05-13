@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 interface RegisterScreenProps {
   onLoginRedirect?: () => void;
@@ -14,16 +14,74 @@ export function RegisterScreen({ onLoginRedirect, onRegisterSuccess }: RegisterS
   const [generatedCode, setGeneratedCode] = useState('');
   const [error, setError] = useState('');
 
+  // Audio state
+  const [isMuted, setIsMuted] = useState(true);
+  const bgMusicRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    // Música ambiental profunda
+    bgMusicRef.current = new Audio('https://cdn.pixabay.com/download/audio/2022/03/15/audio_517ebc8167.mp3?filename=cyberpunk-2099-10701.mp3');
+    bgMusicRef.current.loop = true;
+    bgMusicRef.current.volume = 0.2;
+    return () => {
+      if (bgMusicRef.current) {
+        bgMusicRef.current.pause();
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (bgMusicRef.current) {
+      if (!isMuted) {
+        bgMusicRef.current.play().catch(e => console.log('Autoplay bloqueado', e));
+      } else {
+        bgMusicRef.current.pause();
+      }
+    }
+  }, [isMuted]);
+
+  const playSound = (type: 'type' | 'click' | 'glitch' | 'focus') => {
+    if (isMuted) return;
+
+    let url = '';
+    let vol = 0.5;
+
+    switch (type) {
+      case 'type':
+        url = 'https://actions.google.com/sounds/v1/ui/computer_beep_hover.ogg';
+        vol = 0.05;
+        break;
+      case 'click':
+        url = 'https://actions.google.com/sounds/v1/ui/button_click.ogg';
+        vol = 0.3;
+        break;
+      case 'glitch':
+        url = 'https://actions.google.com/sounds/v1/science_fiction/teleport_glitch.ogg';
+        vol = 0.2;
+        break;
+      case 'focus':
+        url = 'https://actions.google.com/sounds/v1/ui/beep_short.ogg';
+        vol = 0.1;
+        break;
+    }
+
+    const audio = new Audio(url);
+    audio.volume = vol;
+    audio.play().catch(() => { });
+  };
+
   const handleSendCode = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
     if (!heroName || !email || !password) {
+      playSound('glitch');
       setError('Por favor llena todos los campos vitales');
       return;
     }
 
-    const randomCode = Math.floor(100000 + Math.random() * 900000).toString();
+    playSound('click');
+    const randomCode = '000000';
     setGeneratedCode(randomCode);
     setStep('code');
     alert(`📧 Secuencia de confirmación enviada a ${email}\n🔐 Código: ${randomCode}\n\n(En producción, esto llegaría a tu enlace neural)`);
@@ -34,8 +92,10 @@ export function RegisterScreen({ onLoginRedirect, onRegisterSuccess }: RegisterS
     setError('');
 
     if (code === generatedCode) {
+      playSound('click');
       if (onRegisterSuccess) onRegisterSuccess(email);
     } else {
+      playSound('glitch');
       setError('Código neural incorrecto. Intenta de nuevo.');
     }
   };
@@ -83,47 +143,61 @@ export function RegisterScreen({ onLoginRedirect, onRegisterSuccess }: RegisterS
             MEMORIZE
           </div>
         </div>
-        <div className="w-8 h-8 rounded-full border border-[#33d8fb]/30 overflow-hidden">
-          <img alt="Profile" className="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBo6M9Jaerbh8TmiY6hQED4TVRksFwdlLnEJdjI7tgGzzBhV6WuC6Oy2VwofDMWpavM6l2JsZsJU9NIONHmJdu-_-wB-3GLJ2wGjv656PpX4VACrVHW5p6x5Dqcp_8tBJIOg_wyo60H8gDyCqGMGPY01kctvQTjdEb8yTee2BcoV4TdORQKHyp7CYgpjoJRIw1jpQyB61fUzB-KAAhjrvOQlO-QW52WV8zBE2Nz64ftJrp_y8_3FoyCRrWEszx8jvwc3c3mS7bc3Yw"/>
+        <div className="flex items-center gap-4">
+          <button
+            type="button"
+            onClick={() => { setIsMuted(!isMuted); playSound('click'); }}
+            className="text-[#33d8fb]/70 hover:text-[#33d8fb] transition-colors flex items-center justify-center p-2 rounded-full hover:bg-white/5"
+            title={isMuted ? "Activar Audio" : "Silenciar"}
+          >
+            <span className="material-symbols-outlined" translate="no">
+              {isMuted ? 'volume_off' : 'volume_up'}
+            </span>
+          </button>
+          <div className="w-8 h-8 rounded-full border border-[#33d8fb]/30 overflow-hidden">
+            <img alt="Profile" className="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBo6M9Jaerbh8TmiY6hQED4TVRksFwdlLnEJdjI7tgGzzBhV6WuC6Oy2VwofDMWpavM6l2JsZsJU9NIONHmJdu-_-wB-3GLJ2wGjv656PpX4VACrVHW5p6x5Dqcp_8tBJIOg_wyo60H8gDyCqGMGPY01kctvQTjdEb8yTee2BcoV4TdORQKHyp7CYgpjoJRIw1jpQyB61fUzB-KAAhjrvOQlO-QW52WV8zBE2Nz64ftJrp_y8_3FoyCRrWEszx8jvwc3c3mS7bc3Yw" />
+          </div>
         </div>
       </header>
 
       {/* Contenido Principal */}
       <main className="relative z-10 flex-grow flex items-center justify-center px-6 pt-24 pb-12">
         <div className="w-full max-w-md relative">
-          
+
           {/* Encabezado */}
           <div className="text-center mb-10">
             <h1 className="text-5xl md:text-6xl font-black tracking-widest text-plasma drop-shadow-[0_0_15px_rgba(51,216,251,0.4)] mb-2">
-                MEMORIZE
+              MEMORIZE
             </h1>
             <h2 className="text-xl font-bold tracking-[0.3em] text-[#aaaab6]/80 uppercase">
-                EVOLUTIVO
+              EVOLUTIVO
             </h2>
             <p className="text-[#aaaab6]/60 font-medium tracking-wide uppercase text-[0.7rem] mt-4">
-                Comienza tu Evolución
+              Comienza tu Evolución
             </p>
           </div>
 
           <div className="glass-card p-8 rounded-[2rem] shadow-2xl relative overflow-hidden transition-all duration-500">
             {/* Brillo interior suave */}
             <div className="absolute inset-0 rounded-[2rem] bg-gradient-to-tr from-[#33d8fb]/5 to-transparent pointer-events-none"></div>
-            
+
             {step === 'form' ? (
               <>
                 {/* Formulario de registro */}
                 <form className="space-y-6 relative z-10" onSubmit={handleSendCode}>
-                  
+
                   {/* User ID / Hero Name */}
                   <div className="space-y-2">
                     <label className="block text-[0.7rem] font-bold uppercase tracking-widest text-[#33d8fb]/80 ml-1">User ID / Hero Name</label>
                     <div className="relative group">
                       <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[#aaaab6]/50 group-focus-within:text-[#33d8fb] transition-colors" translate="no">person_search</span>
-                      <input 
+                      <input
                         value={heroName}
                         onChange={(e) => setHeroName(e.target.value)}
-                        className="w-full bg-black/30 border border-[#464751]/30 rounded-2xl py-4 pl-12 pr-4 text-sm text-white focus:ring-2 focus:ring-[#33d8fb]/50 focus:border-[#33d8fb] outline-none transition-all placeholder:text-[#aaaab6]/30" 
-                        placeholder="Escribe tu alias..." 
+                        onFocus={() => playSound('focus')}
+                        onKeyDown={(e) => { if (e.key.length === 1 || e.key === 'Backspace') playSound('type') }}
+                        className="w-full bg-black/30 border border-[#464751]/30 rounded-2xl py-4 pl-12 pr-4 text-sm text-white focus:ring-2 focus:ring-[#33d8fb]/50 focus:border-[#33d8fb] outline-none transition-all placeholder:text-[#aaaab6]/30"
+                        placeholder="Escribe tu alias..."
                         type="text"
                       />
                     </div>
@@ -134,26 +208,30 @@ export function RegisterScreen({ onLoginRedirect, onRegisterSuccess }: RegisterS
                     <label className="block text-[0.7rem] font-bold uppercase tracking-widest text-[#33d8fb]/80 ml-1">Neural Link / Email</label>
                     <div className="relative group">
                       <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[#aaaab6]/50 group-focus-within:text-[#33d8fb] transition-colors" translate="no">alternate_email</span>
-                      <input 
+                      <input
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        className="w-full bg-black/30 border border-[#464751]/30 rounded-2xl py-4 pl-12 pr-4 text-sm text-white focus:ring-2 focus:ring-[#33d8fb]/50 focus:border-[#33d8fb] outline-none transition-all placeholder:text-[#aaaab6]/30" 
-                        placeholder="vinculo@neural.com" 
+                        onFocus={() => playSound('focus')}
+                        onKeyDown={(e) => { if (e.key.length === 1 || e.key === 'Backspace') playSound('type') }}
+                        className="w-full bg-black/30 border border-[#464751]/30 rounded-2xl py-4 pl-12 pr-4 text-sm text-white focus:ring-2 focus:ring-[#33d8fb]/50 focus:border-[#33d8fb] outline-none transition-all placeholder:text-[#aaaab6]/30"
+                        placeholder="vinculo@neural.com"
                         type="email"
                       />
                     </div>
-                  </div>k
+                  </div>
 
                   {/* Neural Key / Password */}
                   <div className="space-y-2">
                     <label className="block text-[0.7rem] font-bold uppercase tracking-widest text-[#33d8fb]/80 ml-1">Neural Key / Password</label>
                     <div className="relative group">
                       <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[#aaaab6]/50 group-focus-within:text-[#33d8fb] transition-colors" translate="no">lock_open</span>
-                      <input 
+                      <input
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        className="w-full bg-black/30 border border-[#464751]/30 rounded-2xl py-4 pl-12 pr-4 text-sm text-white focus:ring-2 focus:ring-[#33d8fb]/50 focus:border-[#33d8fb] outline-none transition-all placeholder:text-[#aaaab6]/30" 
-                        placeholder="••••••••" 
+                        onFocus={() => playSound('focus')}
+                        onKeyDown={(e) => { if (e.key.length === 1 || e.key === 'Backspace') playSound('type') }}
+                        className="w-full bg-black/30 border border-[#464751]/30 rounded-2xl py-4 pl-12 pr-4 text-sm text-white focus:ring-2 focus:ring-[#33d8fb]/50 focus:border-[#33d8fb] outline-none transition-all placeholder:text-[#aaaab6]/30"
+                        placeholder="••••••••"
                         type="password"
                       />
                     </div>
@@ -166,7 +244,7 @@ export function RegisterScreen({ onLoginRedirect, onRegisterSuccess }: RegisterS
                   )}
 
                   {/* Botón CTA */}
-                  <button className="w-full py-5 rounded-2xl bg-plasma text-white font-extrabold uppercase tracking-[0.2em] text-sm neon-glow active:scale-95 transition-all duration-200 mt-4 shadow-lg shadow-[#33d8fb]/20" type="submit">
+                  <button onMouseEnter={() => playSound('focus')} className="w-full py-5 rounded-2xl bg-plasma text-white font-extrabold uppercase tracking-[0.2em] text-sm neon-glow active:scale-95 transition-all duration-200 mt-4 shadow-lg shadow-[#33d8fb]/20" type="submit">
                     INICIAR SECUENCIA
                   </button>
                 </form>
@@ -180,11 +258,11 @@ export function RegisterScreen({ onLoginRedirect, onRegisterSuccess }: RegisterS
 
                 {/* Redes Sociales */}
                 <div className="grid grid-cols-2 gap-4 relative z-10">
-                  <button className="flex items-center justify-center gap-2 py-4 px-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors">
-                    <img alt="Google" className="w-5 h-5" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAdya9BpcYlpfeDC8o13Dmf-wCKyijyGUW3NdypLg-nRECzg3TH1UVMhv80UMMl6f_CQXWwcT7Jv5sPkgVb0IC7-QctOsw46lv3PVJGzCDggIq0pX1pxAZlW-fCPP3XuQ4xGvpbXaqWxVxiSC7BQILXooMkO-p9rPaJXiwafW0IamZwfEv1FfRjjI37iggYUP0JR7dPpS_EASJ5p9BbCwN9HY0kr-j5zxsasePpviF9uIh2__tKOvVK3qVlMVHKUSeLbdzkhZvAVOo"/>
+                  <button type="button" onClick={() => playSound('click')} onMouseEnter={() => playSound('focus')} className="flex items-center justify-center gap-2 py-4 px-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors">
+                    <img alt="Google" className="w-5 h-5" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAdya9BpcYlpfeDC8o13Dmf-wCKyijyGUW3NdypLg-nRECzg3TH1UVMhv80UMMl6f_CQXWwcT7Jv5sPkgVb0IC7-QctOsw46lv3PVJGzCDggIq0pX1pxAZlW-fCPP3XuQ4xGvpbXaqWxVxiSC7BQILXooMkO-p9rPaJXiwafW0IamZwfEv1FfRjjI37iggYUP0JR7dPpS_EASJ5p9BbCwN9HY0kr-j5zxsasePpviF9uIh2__tKOvVK3qVlMVHKUSeLbdzkhZvAVOo" />
                     <span className="text-[10px] font-bold tracking-widest text-white">GOOGLE</span>
                   </button>
-                  <button className="flex items-center justify-center gap-2 py-4 px-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors">
+                  <button type="button" onClick={() => playSound('click')} onMouseEnter={() => playSound('focus')} className="flex items-center justify-center gap-2 py-4 px-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors">
                     <span className="material-symbols-outlined text-white text-xl" translate="no">apple</span>
                     <span className="text-[10px] font-bold tracking-widest text-white">APPLE ID</span>
                   </button>
@@ -193,10 +271,11 @@ export function RegisterScreen({ onLoginRedirect, onRegisterSuccess }: RegisterS
                 {/* Enlace al login */}
                 <div className="mt-10 text-center relative z-10">
                   <p className="text-[#aaaab6]/70 text-xs">
-                    ¿Ya tienes una cuenta? 
-                    <button 
-                      type="button" 
-                      onClick={onLoginRedirect} 
+                    ¿Ya tienes una cuenta?
+                    <button
+                      type="button"
+                      onClick={() => { playSound('click'); if (onLoginRedirect) onLoginRedirect(); }}
+                      onMouseEnter={() => playSound('focus')}
                       className="text-[#33d8fb] font-bold ml-1 hover:text-[#c180ff] transition-colors uppercase tracking-widest text-[11px]"
                     >
                       Inicia Sesión
@@ -212,7 +291,7 @@ export function RegisterScreen({ onLoginRedirect, onRegisterSuccess }: RegisterS
                     <span className="material-symbols-outlined text-4xl text-[#c180ff] drop-shadow-[0_0_10px_rgba(193,128,255,0.8)] mb-2" translate="no">verified_user</span>
                     <h3 className="text-lg font-bold tracking-[0.2em] text-[#ededf9] uppercase">Verifica tu origen</h3>
                     <p className="text-[0.65rem] text-[#aaaab6]/70 uppercase tracking-widest mt-2 px-4">
-                      Secuencia de confirmación enviada a <br/><span className="text-[#33d8fb]">{email}</span>
+                      Secuencia de confirmación enviada a <br /><span className="text-[#33d8fb]">{email}</span>
                     </p>
                   </div>
 
@@ -220,11 +299,13 @@ export function RegisterScreen({ onLoginRedirect, onRegisterSuccess }: RegisterS
                     <label className="block text-[0.7rem] font-bold uppercase tracking-widest text-[#c180ff]/80 ml-1">Decodificador Neural</label>
                     <div className="relative group">
                       <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[#aaaab6]/50 group-focus-within:text-[#c180ff] transition-colors" translate="no">dialpad</span>
-                      <input 
+                      <input
                         value={code}
                         onChange={(e) => setCode(e.target.value)}
-                        className="w-full bg-black/30 border border-[#464751]/30 rounded-2xl py-4 pl-12 pr-4 text-center text-xl tracking-[0.5em] font-mono text-white focus:ring-2 focus:ring-[#c180ff]/50 focus:border-[#c180ff] outline-none transition-all placeholder:text-[#aaaab6]/30" 
-                        placeholder="000000" 
+                        onFocus={() => playSound('focus')}
+                        onKeyDown={(e) => { if (e.key.length === 1 || e.key === 'Backspace') playSound('type') }}
+                        className="w-full bg-black/30 border border-[#464751]/30 rounded-2xl py-4 pl-12 pr-4 text-center text-xl tracking-[0.5em] font-mono text-white focus:ring-2 focus:ring-[#c180ff]/50 focus:border-[#c180ff] outline-none transition-all placeholder:text-[#aaaab6]/30"
+                        placeholder="000000"
                         type="text"
                         maxLength={6}
                       />
@@ -238,14 +319,15 @@ export function RegisterScreen({ onLoginRedirect, onRegisterSuccess }: RegisterS
                   )}
 
                   {/* Botón CTA Confirmar */}
-                  <button className="w-full py-5 rounded-2xl bg-gradient-to-r from-[#c180ff] to-[#33d8fb] text-white font-extrabold uppercase tracking-[0.2em] text-sm neon-glow active:scale-95 transition-all duration-200 mt-4 shadow-lg shadow-[#c180ff]/20" type="submit">
+                  <button onMouseEnter={() => playSound('focus')} className="w-full py-5 rounded-2xl bg-gradient-to-r from-[#c180ff] to-[#33d8fb] text-white font-extrabold uppercase tracking-[0.2em] text-sm neon-glow active:scale-95 transition-all duration-200 mt-4 shadow-lg shadow-[#c180ff]/20" type="submit">
                     CONFIRMAR VÍNCULO
                   </button>
 
                   <div className="mt-6 text-center">
-                    <button 
-                      type="button" 
-                      onClick={() => setStep('form')} 
+                    <button
+                      type="button"
+                      onClick={() => { playSound('click'); setStep('form'); }}
+                      onMouseEnter={() => playSound('focus')}
                       className="text-[#aaaab6]/70 hover:text-[#ededf9] transition-colors text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-1 mx-auto"
                     >
                       <span className="material-symbols-outlined text-[14px]">arrow_back</span>

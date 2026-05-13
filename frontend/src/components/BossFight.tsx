@@ -17,52 +17,12 @@ interface BossFightProps {
   onBackToMenu: () => void;
 }
 
-const bossConfig = {
-  volcania: {
-    name: "Ignis el Destructor",
-    emoji: "🐉",
-    gradient: "from-orange-600 via-red-600 to-amber-600",
-    bgGradient: "from-orange-950 via-red-950 to-black",
-    glowColor: "#ff4500",
-    attacks: ["Llamarada", "Meteorito", "Erupción"],
-    symbols: ["🔥", "⚡", "💥", "🌋"],
-  },
-  frostheim: {
-    name: "Glacius el Eterno",
-    emoji: "🧊",
-    gradient: "from-cyan-400 via-blue-500 to-indigo-500",
-    bgGradient: "from-cyan-950 via-blue-950 to-black",
-    glowColor: "#00d4ff",
-    attacks: ["Ventisca", "Lanza Helada", "Congelación"],
-    symbols: ["❄️", "💎", "🌊", "🧊"],
-  },
-  neural: {
-    name: "Synapse la Mente",
-    emoji: "🤖",
-    gradient: "from-emerald-400 via-teal-500 to-cyan-500",
-    bgGradient: "from-emerald-950 via-teal-950 to-black",
-    glowColor: "#00ff88",
-    attacks: ["Pulso Mental", "Sobrecarga", "Hackeo Neural"],
-    symbols: ["⚡", "🔌", "💻", "🤖"],
-  },
-  verdalis: {
-    name: "Gaia la Ancestral",
-    emoji: "🌳",
-    gradient: "from-lime-500 via-green-500 to-emerald-600",
-    bgGradient: "from-lime-950 via-green-950 to-black",
-    glowColor: "#7fff00",
-    attacks: ["Enredadera", "Esporas Tóxicas", "Terremoto"],
-    symbols: ["🌿", "🍃", "🌳", "🌺"],
-  },
-  lunaris: {
-    name: "Noctis el Oscuro",
-    emoji: "🌑",
-    gradient: "from-purple-400 via-violet-500 to-purple-600",
-    bgGradient: "from-purple-950 via-violet-950 to-black",
-    glowColor: "#b19cd9",
-    attacks: ["Eclipse", "Rayo Lunar", "Void"],
-    symbols: ["🌙", "⭐", "💫", "🌑"],
-  },
+const bossConfig: Record<Universe, { name: string; emoji: string; gradient: string; bgGradient: string; glowColor: string; attacks: string[]; symbols: string[] }> = {
+  volcania: { name: 'Ignis el Destructor', emoji: '🐉', gradient: 'from-orange-600 via-red-600 to-amber-600', bgGradient: 'from-orange-950 via-red-950 to-black', glowColor: '#ff4500', attacks: ["Llamarada", "Meteorito", "Erupción"], symbols: ['🍎', '🍓', '🍒', '🍅', '🍉', '🌶️', '🍄', '🎈'] },
+  frostheim: { name: 'Glacius el Eterno', emoji: '🧊', gradient: 'from-cyan-400 via-blue-500 to-indigo-500', bgGradient: 'from-cyan-950 via-blue-950 to-black', glowColor: '#00d4ff', attacks: ["Ventisca", "Lanza Helada", "Congelación"], symbols: ['🫐', '🍇', '🍆', '🍬', '🪁', '💎', '🐟', '🧊'] },
+  neural: { name: 'Synapse la Mente', emoji: '🤖', gradient: 'from-emerald-400 via-teal-500 to-cyan-500', bgGradient: 'from-emerald-950 via-teal-950 to-black', glowColor: '#00ff88', attacks: ["Pulso Mental", "Sobrecarga", "Hackeo Neural"], symbols: ['🍏', '🍐', '🥝', '🍈', '🥒', '🥦', '🔋', '🧩'] },
+  verdalis: { name: 'Gaia la Ancestral', emoji: '🌳', gradient: 'from-lime-500 via-green-500 to-emerald-600', bgGradient: 'from-lime-950 via-green-950 to-black', glowColor: '#7fff00', attacks: ["Enredadera", "Esporas Tóxicas", "Terremoto"], symbols: ['🍋', '🍌', '🍍', '🌻', '🧀', '🌽', '🚕', '☀️'] },
+  lunaris: { name: 'Noctis el Oscuro', emoji: '🌑', gradient: 'from-purple-400 via-violet-500 to-purple-600', bgGradient: 'from-purple-950 via-violet-950 to-black', glowColor: '#b19cd9', attacks: ["Eclipse", "Rayo Lunar", "Void"], symbols: ['🍑', '🍊', '🥭', '🥕', '🎃', '🏀', '🦊', '🐅'] },
 };
 
 export function BossFight({ universe, onBossDefeated, onBackToMenu }: BossFightProps) {

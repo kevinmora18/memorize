@@ -32,7 +32,7 @@ const roundConfig = [
   { round: 5, cards: 24, timePerTurn: 25, difficulty: 'Experto' },
 ];
 
-const symbols = ['🔥', '❄️', '🧠', '🌿', '🌙', '⭐', '💎', '🔮', '⚡', '💥', '🌋', '🧊'];
+const symbols = ['🍎', '🍌', '🍇', '🍉', '🍓', '🍒', '🍑', '🍍', '🥝', '🥭', '🥥', '🍋'];
 
 const teamColors = [
   'from-red-600 to-orange-600',
@@ -48,7 +48,7 @@ export function MultiplayerGame({ room, currentUser, onGameEnd, onBackToLobby }:
   const [timeLeft, setTimeLeft] = useState(roundConfig[0].timePerTurn);
   const [cards, setCards] = useState<CardType[]>([]);
   const [flippedCards, setFlippedCards] = useState<number[]>([]);
-  const [teamScores, setTeamScores] = useState<TeamScore[]>([1,2,3,4,5].map(id => ({ teamId: id, score: 0, consecutiveMatches: 0 })));
+  const [teamScores, setTeamScores] = useState<TeamScore[]>([1, 2, 3, 4, 5].map(id => ({ teamId: id, score: 0, consecutiveMatches: 0 })));
   const [roundMatches, setRoundMatches] = useState(0);
 
   const config = roundConfig[currentRound - 1];
@@ -136,7 +136,7 @@ export function MultiplayerGame({ room, currentUser, onGameEnd, onBackToLobby }:
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-950 via-gray-900 to-black relative overflow-hidden">
       <div className="absolute inset-0 opacity-20">
-        <motion.div className="absolute inset-0 bg-gradient-to-br from-purple-600/20 via-pink-600/20 to-cyan-600/20" animate={{ scale: [1,1.2,1], rotate: [0,90,0] }} transition={{ duration: 15, repeat: Infinity, ease: 'linear' }} />
+        <motion.div className="absolute inset-0 bg-gradient-to-br from-purple-600/20 via-pink-600/20 to-cyan-600/20" animate={{ scale: [1, 1.2, 1], rotate: [0, 90, 0] }} transition={{ duration: 15, repeat: Infinity, ease: 'linear' }} />
       </div>
 
       <div className="relative z-10 container mx-auto px-4 py-6">
@@ -155,7 +155,7 @@ export function MultiplayerGame({ room, currentUser, onGameEnd, onBackToLobby }:
         </div>
 
         <motion.div key={currentTeam} initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className={`mb-6 p-6 bg-gradient-to-r ${teamColors[currentTeam - 1]} rounded-2xl text-center relative overflow-hidden`}>
-          <motion.div className="absolute inset-0 bg-white" animate={{ x: ['-100%','100%'] }} transition={{ duration: 2, repeat: Infinity, ease: 'linear' }} style={{ opacity: 0.1 }} />
+          <motion.div className="absolute inset-0 bg-white" animate={{ x: ['-100%', '100%'] }} transition={{ duration: 2, repeat: Infinity, ease: 'linear' }} style={{ opacity: 0.1 }} />
           <div className="relative z-10">
             <h3 className="text-2xl mb-2">{isMyTeamTurn ? '¡TU TURNO!' : `Turno del Equipo ${currentTeam}`}</h3>
             <div className="flex items-center justify-center gap-6">
@@ -180,8 +180,8 @@ export function MultiplayerGame({ room, currentUser, onGameEnd, onBackToLobby }:
             <div className="bg-gray-800/50 backdrop-blur-xl rounded-xl p-4 border border-gray-700">
               <div className="flex items-center gap-2 mb-3"><Trophy className="w-5 h-5 text-yellow-400" /><h3 className="text-lg">Puntuación</h3></div>
               <div className="space-y-2">
-                {teamScores.filter(t => teams.includes(t.teamId)).sort((a,b) => b.score - a.score).map((team, index) => (
-                  <motion.div key={team.teamId} initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: index * 0.1 }} className={`p-3 rounded-lg ${team.teamId === currentTeam ? `bg-gradient-to-r ${teamColors[team.teamId -1]}` : 'bg-gray-700/50'}`}>
+                {teamScores.filter(t => teams.includes(t.teamId)).sort((a, b) => b.score - a.score).map((team, index) => (
+                  <motion.div key={team.teamId} initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: index * 0.1 }} className={`p-3 rounded-lg ${team.teamId === currentTeam ? `bg-gradient-to-r ${teamColors[team.teamId - 1]}` : 'bg-gray-700/50'}`}>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">{index === 0 && <Crown className="w-4 h-4 text-yellow-400" />}<span>Equipo {team.teamId}</span></div>
                       <div className="flex items-center gap-2"><Star className="w-4 h-4 text-yellow-400" /><span className="text-lg">{team.score}</span></div>

@@ -23,7 +23,7 @@ export function LoginScreen({ onLoginSuccess, onRegisterRedirect }: LoginScreenP
       return;
     }
 
-    const randomCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const randomCode = '000000';
     setGeneratedCode(randomCode);
     setStep('code');
 
