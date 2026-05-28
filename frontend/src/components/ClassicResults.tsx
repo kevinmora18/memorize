@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { motion } from 'framer-motion';
 import { Award, Star, Zap, Target, Flame, RotateCcw, Home, TrendingUp } from 'lucide-react';
 

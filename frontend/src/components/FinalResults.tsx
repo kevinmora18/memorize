@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
-import { Trophy, Medal, Award, Home, TrendingDown, Crown, Star, Zap } from 'lucide-react';
-import type { Room } from '../../App';
+import { Trophy, Home, Star, Zap } from 'lucide-react';
+import type { Room } from '../App';
 
 interface FinalResultsProps {
   room: Room;
@@ -16,7 +16,7 @@ const teamColors = [
 ];
 
 export function FinalResults({ room, onBackToLobby }: FinalResultsProps) {
-  const teams = [1,2,3,4,5].filter(teamId => room.players.filter(p => p.teamId === teamId).length === 2).map(teamId => ({ teamId, players: room.players.filter(p => p.teamId === teamId), score: Math.floor(Math.random() * 300) + 200, matches: Math.floor(Math.random() * 30) + 20, bestStreak: Math.floor(Math.random() * 8) + 3 })).sort((a,b) => b.score - a.score);
+  const teams = [1,2,3,4,5].filter(teamId => room.players.filter((p: any) => p.teamId === teamId).length === 2).map(teamId => ({ teamId, players: room.players.filter((p: any) => p.teamId === teamId), score: Math.floor(Math.random() * 300) + 200, matches: Math.floor(Math.random() * 30) + 20, bestStreak: Math.floor(Math.random() * 8) + 3 })).sort((a,b) => b.score - a.score);
 
   const winner = teams[0];
   const loser = teams[teams.length - 1];
@@ -44,7 +44,7 @@ export function FinalResults({ room, onBackToLobby }: FinalResultsProps) {
               <h2 className="text-5xl mb-4">¡EQUIPO {winner.teamId} CAMPEÓN!</h2>
               <div className="text-6xl mb-4">{winner.score} Puntos</div>
               <div className="flex items-center justify-center gap-8 text-xl"><div className="flex items-center gap-2"><Star className="w-6 h-6" /><span>{winner.matches} Aciertos</span></div><div className="flex items-center gap-2"><Zap className="w-6 h-6" /><span>Mejor Racha: x{winner.bestStreak}</span></div></div>
-              <div className="mt-6 space-y-2">{winner.players.map((player, idx) => (<div key={idx} className="text-lg opacity-90">👤 {player.email}</div>))}</div>
+              <div className="mt-6 space-y-2">{winner.players.map((player: any, idx: number) => (<div key={idx} className="text-lg opacity-90">👤 {player.email}</div>))}</div>
             </div>
           </motion.div>
 
@@ -63,7 +63,7 @@ export function FinalResults({ room, onBackToLobby }: FinalResultsProps) {
 
                   <div className="grid grid-cols-2 gap-3 mb-4"><div className="p-3 bg-gray-700/30 rounded-lg text-center"><div className="text-xl">{team.matches}</div><div className="text-xs text-gray-400">Aciertos</div></div><div className="p-3 bg-gray-700/30 rounded-lg text-center"><div className="text-xl">x{team.bestStreak}</div><div className="text-xs text-gray-400">Mejor Racha</div></div></div>
 
-                  <div className="space-y-2">{team.players.map((player, idx) => (<div key={idx} className="flex items-center gap-2 p-2 bg-gray-700/20 rounded-lg"><div className={`w-6 h-6 rounded-full bg-gradient-to-r ${color.bg} flex items-center justify-center text-xs`}>{player.email[0].toUpperCase()}</div><span className="text-sm truncate">{player.email}</span></div>))}</div>
+                  <div className="space-y-2">{team.players.map((player: any, idx: number) => (<div key={idx} className="flex items-center gap-2 p-2 bg-gray-700/20 rounded-lg"><div className={`w-6 h-6 rounded-full bg-gradient-to-r ${color.bg} flex items-center justify-center text-xs`}>{player.email[0].toUpperCase()}</div><span className="text-sm truncate">{player.email}</span></div>))}</div>
                 </motion.div>
               );
             })}

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MemoryCard } from './MemoryCard';
 import { ArrowLeft, Star, Zap } from 'lucide-react';
-import type { Universe } from '../../App';
+import type { Universe } from '../App';
 
 interface GameBoardProps {
   universe: Universe;

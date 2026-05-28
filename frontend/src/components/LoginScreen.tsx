@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mail, Lock, Sparkles, ArrowRight, Check } from 'lucide-react';
+import { Mail, Sparkles, ArrowRight, Check, Shield } from 'lucide-react';
 
 interface LoginScreenProps {
   onLoginSuccess: (email: string) => void;
@@ -44,27 +44,69 @@ export function LoginScreen({ onLoginSuccess, onRegisterRedirect }: LoginScreenP
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center relative overflow-hidden">
+    <div 
+      className="min-h-screen flex items-center justify-center relative overflow-hidden"
+      style={{
+        backgroundImage: "url('/fondosin.png')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+        backgroundAttachment: "fixed"
+      }}
+    >
+      {/* Overlay oscuro para mejorar legibilidad */}
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+      
+      {/* Partículas flotantes */}
       <div className="absolute inset-0">
         {[...Array(100)].map((_, i) => (
           <motion.div
             key={i}
-            className="absolute w-1 h-1 bg-white rounded-full"
+            className="absolute w-1 h-1 bg-cyan-400 rounded-full"
             style={{
               left: `${Math.random() * 100}%`,
               top: `${Math.random() * 100}%`,
             }}
             animate={{
-              opacity: [0.1, 0.5, 0.1],
-              scale: [1, 1.5, 1],
+              opacity: [0.1, 0.8, 0.1],
+              scale: [1, 2, 1],
+              y: [0, -30, 0],
             }}
             transition={{
-              duration: 2 + Math.random() * 3,
+              duration: 3 + Math.random() * 4,
               repeat: Infinity,
               delay: Math.random() * 2,
             }}
           />
         ))}
+      </div>
+      
+      {/* Círculos de energía */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <motion.div
+          className="absolute w-96 h-96 rounded-full border-2 border-cyan-500/20"
+          animate={{
+            scale: [1, 1.5, 1],
+            opacity: [0.3, 0.1, 0.3],
+          }}
+          transition={{
+            duration: 4,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+        />
+        <motion.div
+          className="absolute w-96 h-96 rounded-full border-2 border-purple-500/20"
+          animate={{
+            scale: [1.5, 1, 1.5],
+            opacity: [0.1, 0.3, 0.1],
+          }}
+          transition={{
+            duration: 4,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+        />
       </div>
 
       <div className="relative z-10 w-full max-w-md px-4">
@@ -77,24 +119,24 @@ export function LoginScreen({ onLoginSuccess, onRegisterRedirect }: LoginScreenP
           <motion.div
             animate={{
               textShadow: [
-                '0 0 20px rgba(0,255,255,0.5)',
-                '0 0 40px rgba(255,0,255,0.5)',
-                '0 0 20px rgba(0,255,255,0.5)',
+                '0 0 20px rgba(139,92,246,0.6)',
+                '0 0 40px rgba(34,211,238,0.6)',
+                '0 0 20px rgba(139,92,246,0.6)',
               ],
             }}
             transition={{ duration: 3, repeat: Infinity }}
           >
-            <h1 className="text-6xl mb-2 bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+            <h1 className="text-6xl mb-2 font-black bg-gradient-to-r from-purple-400 via-cyan-400 to-blue-400 bg-clip-text text-transparent">
               MEMORIZE
             </h1>
-            <h2 className="text-4xl bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent">
+            <h2 className="text-4xl font-bold bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 bg-clip-text text-transparent">
               EVOLUTIVO
             </h2>
           </motion.div>
           <p className="text-white mt-4 flex items-center justify-center gap-2">
-            <Sparkles className="w-4 h-4" />
-            Modo Multijugador
-            <Sparkles className="w-4 h-4" />
+            <Sparkles className="w-4 h-4 text-cyan-400" />
+            Acceso Neural Seguro
+            <Sparkles className="w-4 h-4 text-purple-400" />
           </p>
         </motion.div>
 
@@ -107,20 +149,20 @@ export function LoginScreen({ onLoginSuccess, onRegisterRedirect }: LoginScreenP
               exit={{ x: 300, opacity: 0 }}
               transition={{ type: 'spring', stiffness: 200 }}
             >
-              <div className="bg-gradient-to-br from-gray-800/50 to-gray-900/50 backdrop-blur-xl rounded-3xl p-8 border border-gray-700">
+              <div className="bg-gradient-to-br from-gray-900/80 to-gray-950/80 backdrop-blur-xl rounded-3xl p-8 border-2 border-purple-500/30 shadow-[0_0_50px_rgba(139,92,246,0.3)]">
                 <div className="flex items-center gap-3 mb-6">
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-cyan-500 to-purple-500 flex items-center justify-center">
-                    <Mail className="w-6 h-6 text-white" />
+                  <div className="w-14 h-14 rounded-full bg-gradient-to-br from-purple-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-purple-500/50">
+                    <Mail className="w-7 h-7 text-white" />
                   </div>
                   <div>
-                    <h3 className="text-xl text-white">Paso 1 de 2</h3>
-                    <p className="text-sm text-white">Ingresa tu email</p>
+                    <h3 className="text-2xl text-white font-bold">Paso 1 de 2</h3>
+                    <p className="text-sm text-purple-300">Ingresa tu email</p>
                   </div>
                 </div>
 
-                <form onSubmit={handleSendCode} className="space-y-4">
+                <form onSubmit={handleSendCode} className="space-y-5">
                   <div>
-                    <label className="block text-sm text-white mb-2">
+                    <label className="block text-sm text-purple-300 mb-2 font-semibold">
                       Correo electrónico
                     </label>
                     <input
@@ -128,7 +170,7 @@ export function LoginScreen({ onLoginSuccess, onRegisterRedirect }: LoginScreenP
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="tu@email.com"
-                      className="text-white w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-xl focus:outline-none focus:border-cyan-500 transition-colors"
+                      className="text-white w-full px-4 py-4 bg-gray-950/50 border-2 border-purple-500/30 rounded-2xl focus:outline-none focus:border-cyan-400 focus:shadow-[0_0_20px_rgba(34,211,238,0.3)] transition-all placeholder:text-gray-500"
                     />
                   </div>
 
@@ -136,7 +178,7 @@ export function LoginScreen({ onLoginSuccess, onRegisterRedirect }: LoginScreenP
                     <motion.div
                       initial={{ opacity: 0, y: -10 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="text-red-500 text-sm"
+                      className="text-red-400 text-sm bg-red-500/10 border border-red-500/30 rounded-xl p-3"
                     >
                       {error}
                     </motion.div>
@@ -146,7 +188,7 @@ export function LoginScreen({ onLoginSuccess, onRegisterRedirect }: LoginScreenP
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     type="submit"
-                    className="w-full py-3 bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 rounded-xl flex items-center justify-center gap-2 transition-all"
+                    className="w-full py-4 bg-gradient-to-r from-purple-600 via-purple-500 to-cyan-500 hover:from-purple-500 hover:via-cyan-500 hover:to-blue-500 rounded-2xl flex items-center justify-center gap-2 transition-all font-bold text-lg shadow-lg shadow-purple-500/50"
                   >
                     <span>Enviar código</span>
                     <ArrowRight className="w-5 h-5" />
@@ -161,7 +203,7 @@ export function LoginScreen({ onLoginSuccess, onRegisterRedirect }: LoginScreenP
                   <button
                     type="button"
                     onClick={onRegisterRedirect}
-                    className="w-full mt-6 py-2 text-sm text-cyan-400 hover:text-cyan-300 transition-colors uppercase tracking-widest"
+                    className="w-full mt-6 py-2 text-sm text-cyan-400 hover:text-cyan-300 transition-colors uppercase tracking-widest font-semibold"
                   >
                     ¿No tienes cuenta? Regístrate
                   </button>
@@ -176,26 +218,27 @@ export function LoginScreen({ onLoginSuccess, onRegisterRedirect }: LoginScreenP
               exit={{ x: -300, opacity: 0 }}
               transition={{ type: 'spring', stiffness: 200 }}
             >
-              <div className="bg-gradient-to-br from-gray-800/50 to-gray-900/50 backdrop-blur-xl rounded-3xl p-8 border border-gray-700">
+              <div className="bg-gradient-to-br from-gray-900/80 to-gray-950/80 backdrop-blur-xl rounded-3xl p-8 border-2 border-cyan-500/30 shadow-[0_0_50px_rgba(34,211,238,0.3)]">
                 <div className="flex items-center gap-3 mb-6">
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-                    <Lock className="w-6 h-6 text-white" />
+                  <div className="w-14 h-14 rounded-full bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center shadow-lg shadow-cyan-500/50">
+                    <Shield className="w-7 h-7 text-white" />
                   </div>
                   <div>
-                    <h3 className="text-xl">Paso 2 de 2</h3>
-                    <p className="text-sm text-white">Verifica tu código</p>
+                    <h3 className="text-2xl text-white font-bold">Paso 2 de 2</h3>
+                    <p className="text-sm text-cyan-300">Verifica tu código</p>
                   </div>
                 </div>
 
-                <div className="mb-4 p-4 bg-cyan-500/10 border border-cyan-500/30 rounded-xl">
-                  <p className="text-sm text-cyan-400">
-                    📧 Código enviado a <span className="font-mono">{email}</span>
+                <div className="mb-5 p-4 bg-cyan-500/10 border-2 border-cyan-500/30 rounded-2xl">
+                  <p className="text-sm text-cyan-300 flex items-center gap-2">
+                    <Mail className="w-4 h-4" />
+                    Código enviado a <span className="font-mono font-bold">{email}</span>
                   </p>
                 </div>
 
-                <form onSubmit={handleVerifyCode} className="space-y-4">
+                <form onSubmit={handleVerifyCode} className="space-y-5">
                   <div>
-                    <label className="block text-sm text-gray-400 mb-2">
+                    <label className="block text-sm text-cyan-300 mb-2 font-semibold">
                       Código de verificación
                     </label>
                     <input
@@ -204,7 +247,7 @@ export function LoginScreen({ onLoginSuccess, onRegisterRedirect }: LoginScreenP
                       onChange={(e) => setCode(e.target.value)}
                       placeholder="000000"
                       maxLength={6}
-                      className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-xl text-center text-2xl tracking-widest font-mono focus:outline-none focus:border-purple-500 transition-colors"
+                      className="w-full px-4 py-4 bg-gray-950/50 border-2 border-cyan-500/30 rounded-2xl text-center text-3xl tracking-[0.5em] font-mono focus:outline-none focus:border-blue-400 focus:shadow-[0_0_20px_rgba(59,130,246,0.3)] transition-all text-white placeholder:text-gray-600"
                     />
                   </div>
 
@@ -212,7 +255,7 @@ export function LoginScreen({ onLoginSuccess, onRegisterRedirect }: LoginScreenP
                     <motion.div
                       initial={{ opacity: 0, y: -10 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="text-red-500 text-sm"
+                      className="text-red-400 text-sm bg-red-500/10 border border-red-500/30 rounded-xl p-3"
                     >
                       {error}
                     </motion.div>
@@ -222,7 +265,7 @@ export function LoginScreen({ onLoginSuccess, onRegisterRedirect }: LoginScreenP
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     type="submit"
-                    className="w-full py-3 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 rounded-xl flex items-center justify-center gap-2 transition-all"
+                    className="w-full py-4 bg-gradient-to-r from-cyan-600 via-blue-500 to-purple-500 hover:from-cyan-500 hover:via-blue-500 hover:to-purple-600 rounded-2xl flex items-center justify-center gap-2 transition-all font-bold text-lg shadow-lg shadow-cyan-500/50"
                   >
                     <Check className="w-5 h-5" />
                     <span>Verificar e iniciar sesión</span>
@@ -231,7 +274,7 @@ export function LoginScreen({ onLoginSuccess, onRegisterRedirect }: LoginScreenP
                   <button
                     type="button"
                     onClick={() => setStep('email')}
-                    className="w-full py-2 text-sm text-gray-300 hover:text-white transition-colors"
+                    className="w-full py-2 text-sm text-gray-400 hover:text-white transition-colors"
                   >
                     ← Cambiar email
                   </button>

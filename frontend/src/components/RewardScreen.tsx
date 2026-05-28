@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { Home, RotateCcw, Crown, Sparkles } from 'lucide-react';
-import type { Universe } from '../../App';
+import type { Universe } from '../App';
 
 interface RewardScreenProps {
   universe: Universe;

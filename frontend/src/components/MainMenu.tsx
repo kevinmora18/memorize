@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { UniversePortal } from './UniversePortal';
 import { Sparkles, Trophy, ArrowLeft } from 'lucide-react';
-import type { Universe } from '../../App';
+import type { Universe } from '../App';
 
 interface MainMenuProps {
   onUniverseSelect: (universe: Universe) => void;

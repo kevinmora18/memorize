@@ -8,13 +8,27 @@ import { FinalResults } from './components/FinalResults';
 import { MainMenu } from './components/MainMenu';
 import { GameBoard } from './components/GameBoard';
 import { BossFight } from './components/BossFight';
+import { BossSelect } from './components/BossSelect';
 import { RewardScreen } from './components/RewardScreen';
 import { GameScreen } from './components/GameScreen';
+import { ClassicLevelSelect } from './components/ClassicLevelSelect';
+import { LoadingScreen } from './components/LoadingScreen';
+import { InfiniteMode } from './components/InfiniteMode';
+import { ChallengeMode } from './components/ChallengeMode';
+import { AIFriendsGame } from './components/AIFriendsGame';
+import { AIRoomLobby } from './components/AIRoomLobby';
+import { ProfileScreen } from './components/ProfileScreen';
+import { RankedScreen } from './components/RankedScreen';
+import { TiendaScreen } from './components/TiendaScreen';
+import { ParejasConexiones } from './components/ParejasConexiones';
+import { TriadasConexiones } from './components/TriadasConexiones';
+import { loadPlayerStats, savePlayerStats, addXP } from './lib/playerEvolution';
 import socket from './lib/socket';
 
 export type Universe = 'volcania' | 'frostheim' | 'neural' | 'verdalis' | 'lunaris';
+export type BossType = 'naturaleza' | 'ciencia' | 'humano' | 'ecosistema' | 'tecnologia';
 
-export type GameScreen = 'login' | 'register' | 'lobby' | 'roomWaiting' | 'multiplayerGame' | 'finalResults' | 'menu' | 'game' | 'boss' | 'reward' | 'classic';
+export type GameScreen = 'login' | 'register' | 'lobby' | 'roomWaiting' | 'multiplayerGame' | 'finalResults' | 'menu' | 'game' | 'boss' | 'boss-select' | 'reward' | 'classic' | 'classicLevelSelect' | 'loading' | 'infinite' | 'challenge' | 'ai-friends' | 'ai-room-lobby' | 'profile' | 'ranked' | 'tienda';
 
 export type Player = {
   id: string;
@@ -39,6 +53,9 @@ export default function App() {
   const [currentScreen, setCurrentScreen] = useState<GameScreen>('login');
   const [currentUser, setCurrentUser] = useState<Player | null>(null);
   const [currentRoom, setCurrentRoom] = useState<Room | null>(null);
+  const [classicLevel, setClassicLevel] = useState(1);
+  const [postLoadingScreen, setPostLoadingScreen] = useState<GameScreen | null>(null);
+  const [selectedBossType, setSelectedBossType] = useState<BossType>('naturaleza');
   
   const [rooms, setRooms] = useState<Room[]>([]);
 
@@ -70,7 +87,6 @@ export default function App() {
 
   const [selectedUniverse, setSelectedUniverse] = useState<Universe | null>(null);
   const [currentLevel, setCurrentLevel] = useState(1);
-  const [unlockedPowers, setUnlockedPowers] = useState<Universe[]>([]);
 
   useEffect(() => {
     if (currentRoom) {
@@ -90,16 +106,19 @@ export default function App() {
         if (res.ok) {
           const player = await res.json() as Player;
           setCurrentUser(player);
-          setCurrentScreen('lobby');
+          setPostLoadingScreen('lobby');
+          setCurrentScreen('loading');
         } else {
           const player: Player = { id: Date.now().toString(), email, teamId: 0 };
           setCurrentUser(player);
-          setCurrentScreen('lobby');
+          setPostLoadingScreen('lobby');
+          setCurrentScreen('loading');
         }
       } catch (err) {
         const player: Player = { id: Date.now().toString(), email, teamId: 0 };
         setCurrentUser(player);
-        setCurrentScreen('lobby');
+        setPostLoadingScreen('lobby');
+        setCurrentScreen('loading');
       }
     })();
   };
@@ -114,85 +133,6 @@ export default function App() {
       return generateRoomCode();
     }
     return code;
-  };
-
-  const handleCreateRoom = (name: string) => {
-    if (!currentUser) return;
-    (async () => {
-      try {
-        const res = await fetch(`${API_BASE}/api/rooms`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, creator: currentUser }),
-        });
-        if (res.ok) {
-          const created = await res.json() as Room;
-          setRooms(prev => [...prev, created]);
-          setCurrentUser({ ...currentUser, teamId: 1 });
-          setCurrentRoom(created);
-          setCurrentScreen('roomWaiting');
-          socket.emit('joinRoom', created.id);
-          return;
-        }
-      } catch (err) {
-        console.error('Error creating room', err);
-      }
-
-      const newRoom: Room = {
-        id: Date.now().toString(),
-        name,
-        code: generateRoomCode(),
-        players: [{ ...currentUser, teamId: 1 }],
-        maxPlayers: 10,
-        isStarted: false,
-        currentRound: 1,
-        currentTeam: 1,
-        creatorId: currentUser.id,
-      };
-      setRooms(prevRooms => [...prevRooms, newRoom]);
-      setCurrentUser({ ...currentUser, teamId: 1 });
-      setCurrentRoom(newRoom);
-      setCurrentScreen('roomWaiting');
-    })();
-  };
-
-  const handleJoinRoom = (room: Room, teamId: number) => {
-    if (!currentUser) return;
-    (async () => {
-      try {
-        const res = await fetch(`${API_BASE}/api/rooms/${room.id}/join`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ player: currentUser, teamId }),
-        });
-        if (res.ok) {
-          const updatedRoom = await res.json() as Room;
-          setRooms(prev => prev.map(r => r.id === updatedRoom.id ? updatedRoom : r));
-          setCurrentUser({ ...currentUser, teamId });
-          setCurrentRoom(updatedRoom);
-          setCurrentScreen('roomWaiting');
-          socket.emit('joinRoom', updatedRoom.id);
-          return;
-        }
-      } catch (err) {
-        console.error('Error joining room', err);
-      }
-
-      const playerToUpdate = { ...currentUser, teamId };
-      setRooms(prevRooms => prevRooms.map(r => {
-        if (r.id === room.id) {
-          const playerExists = r.players.some(p => p.id === currentUser.id);
-          const updatedPlayers = playerExists
-            ? r.players.map(p => (p.id === currentUser.id ? playerToUpdate : p))
-            : [...r.players, playerToUpdate];
-          return { ...r, players: updatedPlayers };
-        }
-        return r;
-      }));
-      setCurrentUser(playerToUpdate);
-      setCurrentRoom(room);
-      setCurrentScreen('roomWaiting');
-    })();
   };
 
   const handleChangeTeam = (teamId: number) => {
@@ -267,14 +207,15 @@ export default function App() {
     setCurrentScreen('finalResults');
   };
 
-  const handleGoToSinglePlayer = () => {
-    setCurrentScreen('menu');
-  };
-
   const handleLogout = () => {
     setCurrentUser(null);
     setCurrentRoom(null);
     setCurrentScreen('login');
+  };
+
+  const handleBackToMenu = () => {
+    setCurrentScreen('menu');
+    setSelectedUniverse(null);
   };
 
   const handleUniverseSelect = (universe: Universe) => {
@@ -289,18 +230,6 @@ export default function App() {
     } else {
       setCurrentLevel(currentLevel + 1);
     }
-  };
-
-  const handleBossDefeated = () => {
-    if (selectedUniverse && !unlockedPowers.includes(selectedUniverse)) {
-      setUnlockedPowers([...unlockedPowers, selectedUniverse]);
-    }
-    setCurrentScreen('reward');
-  };
-
-  const handleBackToMenu = () => {
-    setCurrentScreen('menu');
-    setSelectedUniverse(null);
   };
 
   const handleReplay = () => {
@@ -326,7 +255,31 @@ export default function App() {
 
       {currentScreen === 'lobby' && currentUser && (
         <LobbyScreen 
-          onStartClassic={() => setCurrentScreen('classic')}
+          onStartMode={(mode) => {
+            if (mode === 'classic') {
+              setPostLoadingScreen('classicLevelSelect');
+            } else if (mode === 'infinite') {
+              setPostLoadingScreen('infinite');
+            } else if (mode === 'challenge') {
+              setPostLoadingScreen('challenge');
+            } else if (mode === 'boss') {
+              setPostLoadingScreen('boss-select');
+            } else if (mode === 'ai-friends') {
+              setPostLoadingScreen('ai-room-lobby');
+            } else if (mode === 'profile') {
+              setCurrentScreen('profile');
+              return;
+            } else if (mode === 'ranked') {
+              setCurrentScreen('ranked');
+              return;
+            } else if (mode === 'tienda') {
+              setCurrentScreen('tienda');
+              return;
+            } else {
+              setPostLoadingScreen('menu');
+            }
+            setCurrentScreen('loading');
+          }}
           onLogout={handleLogout}
         />
       )}
@@ -360,7 +313,7 @@ export default function App() {
       {currentScreen === 'menu' && (
         <MainMenu 
           onUniverseSelect={handleUniverseSelect}
-          unlockedPowers={unlockedPowers}
+          unlockedPowers={[]}
           onBackToLobby={handleBackToLobby}
         />
       )}
@@ -374,12 +327,43 @@ export default function App() {
         />
       )}
       
-      {currentScreen === 'boss' && selectedUniverse && (
-        <BossFight
-          universe={selectedUniverse}
-          onBossDefeated={handleBossDefeated}
-          onBackToMenu={handleBackToMenu}
+      {currentScreen === 'boss-select' && (
+        <BossSelect
+          onSelectBoss={(bossType: BossType) => {
+            setSelectedBossType(bossType);
+            setSelectedUniverse('neural'); // Universo por defecto
+            setCurrentScreen('boss');
+          }}
+          onBack={() => setCurrentScreen('lobby')}
         />
+      )}
+      
+      {currentScreen === 'boss' && selectedUniverse && (
+        selectedBossType === 'ecosistema' || selectedBossType === 'tecnologia' ? (
+          <TriadasConexiones
+            universe={selectedUniverse}
+            modo={selectedBossType}
+            onComplete={() => {
+              const stats = loadPlayerStats();
+              const newStats = addXP(stats, 350);
+              savePlayerStats(newStats);
+              setCurrentScreen('reward');
+            }}
+            onBackToMenu={handleBackToMenu}
+          />
+        ) : (
+          <ParejasConexiones
+            universe={selectedUniverse}
+            modo={selectedBossType}
+            onComplete={() => {
+              const stats = loadPlayerStats();
+              const newStats = addXP(stats, 250);
+              savePlayerStats(newStats);
+              setCurrentScreen('reward');
+            }}
+            onBackToMenu={handleBackToMenu}
+          />
+        )
       )}
 
       {currentScreen === 'reward' && selectedUniverse && (
@@ -390,10 +374,68 @@ export default function App() {
         />
       )}
       
+      {currentScreen === 'classicLevelSelect' && (
+        <ClassicLevelSelect
+          onSelectLevel={(level) => {
+            setClassicLevel(level);
+            setPostLoadingScreen('classic');
+            setCurrentScreen('loading');
+          }}
+          onBack={() => setCurrentScreen('lobby')}
+        />
+      )}
+
+      {currentScreen === 'loading' && (
+        <LoadingScreen 
+          onComplete={() => {
+            if (postLoadingScreen) {
+              setCurrentScreen(postLoadingScreen);
+              setPostLoadingScreen(null);
+            } else {
+              setCurrentScreen('lobby');
+            }
+          }}
+        />
+      )}
+
       {currentScreen === 'classic' && (
         <GameScreen
+          initialLevel={classicLevel}
           onBackToLobby={() => setCurrentScreen('lobby')}
         />
+      )}
+
+      {currentScreen === 'infinite' && (
+        <InfiniteMode onBackToLobby={() => setCurrentScreen('lobby')} />
+      )}
+
+      {currentScreen === 'challenge' && (
+        <ChallengeMode onBackToLobby={() => setCurrentScreen('lobby')} />
+      )}
+
+      {currentScreen === 'ai-friends' && (
+        <AIFriendsGame onBackToLobby={() => setCurrentScreen('ai-room-lobby')} />
+      )}
+
+      {currentScreen === 'ai-room-lobby' && (
+        <AIRoomLobby 
+          onBackToLobby={() => setCurrentScreen('lobby')}
+          onStartGame={() => {
+            setCurrentScreen('ai-friends');
+          }}
+        />
+      )}
+
+      {currentScreen === 'profile' && (
+        <ProfileScreen onBack={() => setCurrentScreen('lobby')} />
+      )}
+
+      {currentScreen === 'ranked' && (
+        <RankedScreen onBack={() => setCurrentScreen('lobby')} />
+      )}
+
+      {currentScreen === 'tienda' && (
+        <TiendaScreen onBack={() => setCurrentScreen('lobby')} />
       )}
     </div>
   );

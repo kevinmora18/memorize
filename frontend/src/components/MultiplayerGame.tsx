@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MemoryCard } from './MemoryCard';
-import { ArrowLeft, Timer, Trophy, Users, Zap, Star, Crown } from 'lucide-react';
-import type { Room, Player } from '../../App';
+import { ArrowLeft, Timer, Trophy, Zap, Star, Crown } from 'lucide-react';
+import type { Room, Player } from '../App';
 
 interface MultiplayerGameProps {
   room: Room;
@@ -52,7 +52,7 @@ export function MultiplayerGame({ room, currentUser, onGameEnd, onBackToLobby }:
   const [roundMatches, setRoundMatches] = useState(0);
 
   const config = roundConfig[currentRound - 1];
-  const teams = [1, 2, 3, 4, 5].filter(teamId => room.players.filter(p => p.teamId === teamId).length === 2);
+  const teams = [1, 2, 3, 4, 5].filter(teamId => room.players.filter((p: any) => p.teamId === teamId).length === 2);
   const isMyTeamTurn = currentUser.teamId === currentTeam;
 
   useEffect(() => {

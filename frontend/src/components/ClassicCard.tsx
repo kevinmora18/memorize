@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { motion } from 'framer-motion';
 import { Bomb, Zap } from 'lucide-react';
 
@@ -24,7 +24,7 @@ interface ClassicCardProps {
   gamePhase: string;
 }
 
-export function ClassicCard({ card, index, onClick, isShaking, isBouncing, isExploding, gamePhase }: ClassicCardProps) {
+export function ClassicCard({ card, onClick, isShaking, isBouncing, isExploding, gamePhase }: ClassicCardProps) {
   const isVisible = card.isFlipped || card.isMatched;
 
   return (

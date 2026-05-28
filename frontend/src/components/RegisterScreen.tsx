@@ -1,4 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Mail, Sparkles, ArrowRight, Check, Shield, User } from 'lucide-react';
 
 interface RegisterScreenProps {
   onLoginRedirect?: () => void;
@@ -14,77 +16,27 @@ export function RegisterScreen({ onLoginRedirect, onRegisterSuccess }: RegisterS
   const [generatedCode, setGeneratedCode] = useState('');
   const [error, setError] = useState('');
 
-  // Audio state
-  const [isMuted, setIsMuted] = useState(true);
-  const bgMusicRef = useRef<HTMLAudioElement | null>(null);
-
-  useEffect(() => {
-    // Música ambiental profunda
-    bgMusicRef.current = new Audio('https://cdn.pixabay.com/download/audio/2022/03/15/audio_517ebc8167.mp3?filename=cyberpunk-2099-10701.mp3');
-    bgMusicRef.current.loop = true;
-    bgMusicRef.current.volume = 0.2;
-    return () => {
-      if (bgMusicRef.current) {
-        bgMusicRef.current.pause();
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    if (bgMusicRef.current) {
-      if (!isMuted) {
-        bgMusicRef.current.play().catch(e => console.log('Autoplay bloqueado', e));
-      } else {
-        bgMusicRef.current.pause();
-      }
-    }
-  }, [isMuted]);
-
-  const playSound = (type: 'type' | 'click' | 'glitch' | 'focus') => {
-    if (isMuted) return;
-
-    let url = '';
-    let vol = 0.5;
-
-    switch (type) {
-      case 'type':
-        url = 'https://actions.google.com/sounds/v1/ui/computer_beep_hover.ogg';
-        vol = 0.05;
-        break;
-      case 'click':
-        url = 'https://actions.google.com/sounds/v1/ui/button_click.ogg';
-        vol = 0.3;
-        break;
-      case 'glitch':
-        url = 'https://actions.google.com/sounds/v1/science_fiction/teleport_glitch.ogg';
-        vol = 0.2;
-        break;
-      case 'focus':
-        url = 'https://actions.google.com/sounds/v1/ui/beep_short.ogg';
-        vol = 0.1;
-        break;
-    }
-
-    const audio = new Audio(url);
-    audio.volume = vol;
-    audio.play().catch(() => { });
-  };
-
   const handleSendCode = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
     if (!heroName || !email || !password) {
-      playSound('glitch');
-      setError('Por favor llena todos los campos vitales');
+      setError('Por favor llena todos los campos');
       return;
     }
 
-    playSound('click');
+    if (!email.includes('@')) {
+      setError('Por favor ingresa un email válido');
+      return;
+    }
+
     const randomCode = '000000';
     setGeneratedCode(randomCode);
     setStep('code');
-    alert(`📧 Secuencia de confirmación enviada a ${email}\n🔐 Código: ${randomCode}\n\n(En producción, esto llegaría a tu enlace neural)`);
+    
+    console.log('📧 Código enviado a:', email);
+    console.log('🔐 Tu código es:', randomCode);
+    alert(`📧 Código enviado a ${email}\n🔐 Código: ${randomCode}\n\n(En producción, esto llegaría a tu email)`);
   };
 
   const handleVerifyCode = (e: React.FormEvent) => {
@@ -92,257 +44,279 @@ export function RegisterScreen({ onLoginRedirect, onRegisterSuccess }: RegisterS
     setError('');
 
     if (code === generatedCode) {
-      playSound('click');
       if (onRegisterSuccess) onRegisterSuccess(email);
     } else {
-      playSound('glitch');
-      setError('Código neural incorrecto. Intenta de nuevo.');
+      setError('Código incorrecto. Intenta de nuevo.');
     }
   };
 
   return (
-    <div className="font-['Plus_Jakarta_Sans'] bg-[#0c0e16] min-h-[max(884px,100dvh)] text-[#ededf9] antialiased flex flex-col relative overflow-x-hidden">
-      {/* Estilos dinámicos extraídos del head */}
-      <style>{`
-        .bg-plasma { background: linear-gradient(135deg, #33d8fb 0%, #c180ff 100%); }
-        .text-plasma {
-          background: linear-gradient(135deg, #33d8fb 0%, #c180ff 100%);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-        }
-        .glass-card {
-          backdrop-filter: blur(40px);
-          background: rgba(34, 37, 49, 0.4);
-          border: 1px solid rgba(255, 255, 255, 0.05);
-        }
-        .star-particle { position: absolute; background: white; border-radius: 50%; pointer-events: none; }
-        .neon-glow { box-shadow: 0 0 20px rgba(51, 216, 251, 0.3); }
-        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
-      `}</style>
-
-      {/* Partículas de fondo & Brillo */}
-      <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/2 left-1/2 w-[800px] h-[800px] -translate-x-1/2 -translate-y-1/2 bg-[#33d8fb]/10 rounded-full blur-[120px]"></div>
-        <div className="absolute top-1/4 right-1/4 w-[400px] h-[400px] bg-[#c180ff]/5 rounded-full blur-[100px]"></div>
-
-        {/* Estrellas sintéticas */}
-        <div className="star-particle opacity-20 w-1 h-1 top-[10%] left-[15%] animate-pulse"></div>
-        <div className="star-particle opacity-40 w-[2px] h-[2px] top-[40%] left-[80%]"></div>
-        <div className="star-particle opacity-10 w-1 h-1 top-[70%] left-[30%]"></div>
-        <div className="star-particle opacity-30 w-[1.5px] h-[1.5px] top-[20%] left-[60%] animate-pulse"></div>
-        <div className="star-particle opacity-50 w-1 h-1 top-[85%] left-[75%]"></div>
-        <div className="star-particle opacity-20 w-[2px] h-[2px] top-[5%] left-[90%]"></div>
-        <div className="star-particle opacity-40 w-[1px] h-[1px] top-[55%] left-[10%]"></div>
+    <div 
+      className="min-h-screen flex items-center justify-center relative overflow-hidden"
+      style={{
+        backgroundImage: "url('/fondosin.png')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+        backgroundAttachment: "fixed"
+      }}
+    >
+      {/* Overlay oscuro para mejorar legibilidad */}
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+      
+      {/* Partículas flotantes */}
+      <div className="absolute inset-0">
+        {[...Array(100)].map((_, i) => (
+          <motion.div
+            key={i}
+            className="absolute w-1 h-1 bg-purple-400 rounded-full"
+            style={{
+              left: `${Math.random() * 100}%`,
+              top: `${Math.random() * 100}%`,
+            }}
+            animate={{
+              opacity: [0.1, 0.8, 0.1],
+              scale: [1, 2, 1],
+              y: [0, -30, 0],
+            }}
+            transition={{
+              duration: 3 + Math.random() * 4,
+              repeat: Infinity,
+              delay: Math.random() * 2,
+            }}
+          />
+        ))}
+      </div>
+      
+      {/* Círculos de energía */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <motion.div
+          className="absolute w-96 h-96 rounded-full border-2 border-purple-500/20"
+          animate={{
+            scale: [1, 1.5, 1],
+            opacity: [0.3, 0.1, 0.3],
+          }}
+          transition={{
+            duration: 4,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+        />
+        <motion.div
+          className="absolute w-96 h-96 rounded-full border-2 border-cyan-500/20"
+          animate={{
+            scale: [1.5, 1, 1.5],
+            opacity: [0.1, 0.3, 0.1],
+          }}
+          transition={{
+            duration: 4,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+        />
       </div>
 
-      {/* Barra de navegación superior */}
-      <header className="fixed top-0 w-full z-50 flex justify-between items-center px-6 h-16 bg-slate-950/60 backdrop-blur-xl border-b border-white/5 shadow-2xl shadow-cyan-900/10">
-        <div className="flex items-center gap-3">
-          <span className="material-symbols-outlined text-[#33d8fb]" translate="no">account_tree</span>
-          <div className="text-xl font-black tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-[#33d8fb] to-[#c180ff] drop-shadow-[0_0_8px_rgba(51,216,251,0.6)]">
-            MEMORIZE
-          </div>
-        </div>
-        <div className="flex items-center gap-4">
-          <button
-            type="button"
-            onClick={() => { setIsMuted(!isMuted); playSound('click'); }}
-            className="text-[#33d8fb]/70 hover:text-[#33d8fb] transition-colors flex items-center justify-center p-2 rounded-full hover:bg-white/5"
-            title={isMuted ? "Activar Audio" : "Silenciar"}
+      <div className="relative z-10 w-full max-w-md px-4">
+        <motion.div
+          initial={{ y: -50, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.8 }}
+          className="text-center mb-8"
+        >
+          <motion.div
+            animate={{
+              textShadow: [
+                '0 0 20px rgba(139,92,246,0.6)',
+                '0 0 40px rgba(34,211,238,0.6)',
+                '0 0 20px rgba(139,92,246,0.6)',
+              ],
+            }}
+            transition={{ duration: 3, repeat: Infinity }}
           >
-            <span className="material-symbols-outlined" translate="no">
-              {isMuted ? 'volume_off' : 'volume_up'}
-            </span>
-          </button>
-          <div className="w-8 h-8 rounded-full border border-[#33d8fb]/30 overflow-hidden">
-            <img alt="Profile" className="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBo6M9Jaerbh8TmiY6hQED4TVRksFwdlLnEJdjI7tgGzzBhV6WuC6Oy2VwofDMWpavM6l2JsZsJU9NIONHmJdu-_-wB-3GLJ2wGjv656PpX4VACrVHW5p6x5Dqcp_8tBJIOg_wyo60H8gDyCqGMGPY01kctvQTjdEb8yTee2BcoV4TdORQKHyp7CYgpjoJRIw1jpQyB61fUzB-KAAhjrvOQlO-QW52WV8zBE2Nz64ftJrp_y8_3FoyCRrWEszx8jvwc3c3mS7bc3Yw" />
-          </div>
-        </div>
-      </header>
-
-      {/* Contenido Principal */}
-      <main className="relative z-10 flex-grow flex items-center justify-center px-6 pt-24 pb-12">
-        <div className="w-full max-w-md relative">
-
-          {/* Encabezado */}
-          <div className="text-center mb-10">
-            <h1 className="text-5xl md:text-6xl font-black tracking-widest text-plasma drop-shadow-[0_0_15px_rgba(51,216,251,0.4)] mb-2">
+            <h1 className="text-6xl mb-2 font-black bg-gradient-to-r from-purple-400 via-cyan-400 to-blue-400 bg-clip-text text-transparent">
               MEMORIZE
             </h1>
-            <h2 className="text-xl font-bold tracking-[0.3em] text-[#aaaab6]/80 uppercase">
+            <h2 className="text-4xl font-bold bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 bg-clip-text text-transparent">
               EVOLUTIVO
             </h2>
-            <p className="text-[#aaaab6]/60 font-medium tracking-wide uppercase text-[0.7rem] mt-4">
-              Comienza tu Evolución
-            </p>
-          </div>
+          </motion.div>
+          <p className="text-white mt-4 flex items-center justify-center gap-2">
+            <Sparkles className="w-4 h-4 text-purple-400" />
+            Crea tu cuenta
+            <Sparkles className="w-4 h-4 text-cyan-400" />
+          </p>
+        </motion.div>
 
-          <div className="glass-card p-8 rounded-[2rem] shadow-2xl relative overflow-hidden transition-all duration-500">
-            {/* Brillo interior suave */}
-            <div className="absolute inset-0 rounded-[2rem] bg-gradient-to-tr from-[#33d8fb]/5 to-transparent pointer-events-none"></div>
+        <AnimatePresence mode="wait">
+          {step === 'form' ? (
+            <motion.div
+              key="form"
+              initial={{ x: -300, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: 300, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 200 }}
+            >
+              <div className="bg-gradient-to-br from-gray-900/80 to-gray-950/80 backdrop-blur-xl rounded-3xl p-8 border-2 border-purple-500/30 shadow-[0_0_50px_rgba(139,92,246,0.3)]">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-14 h-14 rounded-full bg-gradient-to-br from-purple-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-purple-500/50">
+                    <User className="w-7 h-7 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl text-white font-bold">Paso 1 de 2</h3>
+                    <p className="text-sm text-purple-300">Completa tus datos</p>
+                  </div>
+                </div>
 
-            {step === 'form' ? (
-              <>
-                {/* Formulario de registro */}
-                <form className="space-y-6 relative z-10" onSubmit={handleSendCode}>
-
-                  {/* User ID / Hero Name */}
-                  <div className="space-y-2">
-                    <label className="block text-[0.7rem] font-bold uppercase tracking-widest text-[#33d8fb]/80 ml-1">User ID / Hero Name</label>
-                    <div className="relative group">
-                      <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[#aaaab6]/50 group-focus-within:text-[#33d8fb] transition-colors" translate="no">person_search</span>
-                      <input
-                        value={heroName}
-                        onChange={(e) => setHeroName(e.target.value)}
-                        onFocus={() => playSound('focus')}
-                        onKeyDown={(e) => { if (e.key.length === 1 || e.key === 'Backspace') playSound('type') }}
-                        className="w-full bg-black/30 border border-[#464751]/30 rounded-2xl py-4 pl-12 pr-4 text-sm text-white focus:ring-2 focus:ring-[#33d8fb]/50 focus:border-[#33d8fb] outline-none transition-all placeholder:text-[#aaaab6]/30"
-                        placeholder="Escribe tu alias..."
-                        type="text"
-                      />
-                    </div>
+                <form onSubmit={handleSendCode} className="space-y-4">
+                  <div>
+                    <label className="block text-sm text-purple-300 mb-2 font-semibold">
+                      Nombre de usuario
+                    </label>
+                    <input
+                      type="text"
+                      value={heroName}
+                      onChange={(e) => setHeroName(e.target.value)}
+                      placeholder="Tu alias"
+                      className="text-white w-full px-4 py-4 bg-gray-950/50 border-2 border-purple-500/30 rounded-2xl focus:outline-none focus:border-cyan-400 focus:shadow-[0_0_20px_rgba(34,211,238,0.3)] transition-all placeholder:text-gray-500"
+                    />
                   </div>
 
-                  {/* Neural Link / Email */}
-                  <div className="space-y-2">
-                    <label className="block text-[0.7rem] font-bold uppercase tracking-widest text-[#33d8fb]/80 ml-1">Neural Link / Email</label>
-                    <div className="relative group">
-                      <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[#aaaab6]/50 group-focus-within:text-[#33d8fb] transition-colors" translate="no">alternate_email</span>
-                      <input
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        onFocus={() => playSound('focus')}
-                        onKeyDown={(e) => { if (e.key.length === 1 || e.key === 'Backspace') playSound('type') }}
-                        className="w-full bg-black/30 border border-[#464751]/30 rounded-2xl py-4 pl-12 pr-4 text-sm text-white focus:ring-2 focus:ring-[#33d8fb]/50 focus:border-[#33d8fb] outline-none transition-all placeholder:text-[#aaaab6]/30"
-                        placeholder="vinculo@neural.com"
-                        type="email"
-                      />
-                    </div>
+                  <div>
+                    <label className="block text-sm text-purple-300 mb-2 font-semibold">
+                      Correo electrónico
+                    </label>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="tu@email.com"
+                      className="text-white w-full px-4 py-4 bg-gray-950/50 border-2 border-purple-500/30 rounded-2xl focus:outline-none focus:border-cyan-400 focus:shadow-[0_0_20px_rgba(34,211,238,0.3)] transition-all placeholder:text-gray-500"
+                    />
                   </div>
 
-                  {/* Neural Key / Password */}
-                  <div className="space-y-2">
-                    <label className="block text-[0.7rem] font-bold uppercase tracking-widest text-[#33d8fb]/80 ml-1">Neural Key / Password</label>
-                    <div className="relative group">
-                      <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[#aaaab6]/50 group-focus-within:text-[#33d8fb] transition-colors" translate="no">lock_open</span>
-                      <input
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        onFocus={() => playSound('focus')}
-                        onKeyDown={(e) => { if (e.key.length === 1 || e.key === 'Backspace') playSound('type') }}
-                        className="w-full bg-black/30 border border-[#464751]/30 rounded-2xl py-4 pl-12 pr-4 text-sm text-white focus:ring-2 focus:ring-[#33d8fb]/50 focus:border-[#33d8fb] outline-none transition-all placeholder:text-[#aaaab6]/30"
-                        placeholder="••••••••"
-                        type="password"
-                      />
-                    </div>
+                  <div>
+                    <label className="block text-sm text-purple-300 mb-2 font-semibold">
+                      Contraseña
+                    </label>
+                    <input
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="text-white w-full px-4 py-4 bg-gray-950/50 border-2 border-purple-500/30 rounded-2xl focus:outline-none focus:border-cyan-400 focus:shadow-[0_0_20px_rgba(34,211,238,0.3)] transition-all placeholder:text-gray-500"
+                    />
                   </div>
 
                   {error && (
-                    <div className="text-red-400 text-xs font-bold uppercase tracking-widest text-center">
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="text-red-400 text-sm bg-red-500/10 border border-red-500/30 rounded-xl p-3"
+                    >
                       {error}
-                    </div>
+                    </motion.div>
                   )}
 
-                  {/* Botón CTA */}
-                  <button onMouseEnter={() => playSound('focus')} className="w-full py-5 rounded-2xl bg-plasma text-white font-extrabold uppercase tracking-[0.2em] text-sm neon-glow active:scale-95 transition-all duration-200 mt-4 shadow-lg shadow-[#33d8fb]/20" type="submit">
-                    INICIAR SECUENCIA
-                  </button>
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    type="submit"
+                    className="w-full py-4 bg-gradient-to-r from-purple-600 via-purple-500 to-cyan-500 hover:from-purple-500 hover:via-cyan-500 hover:to-blue-500 rounded-2xl flex items-center justify-center gap-2 transition-all font-bold text-lg shadow-lg shadow-purple-500/50"
+                  >
+                    <span>Enviar código</span>
+                    <ArrowRight className="w-5 h-5" />
+                  </motion.button>
                 </form>
 
-                {/* Separador */}
-                <div className="flex items-center my-8 relative z-10">
-                  <div className="flex-grow h-px bg-white/10"></div>
-                  <span className="px-4 text-[10px] uppercase font-bold tracking-widest text-[#aaaab6]/40">O vincular con</span>
-                  <div className="flex-grow h-px bg-white/10"></div>
+                <p className="text-xs text-gray-400 text-center mt-4">
+                  Te enviaremos un código de verificación a tu email
+                </p>
+
+                {onLoginRedirect && (
+                  <button
+                    type="button"
+                    onClick={onLoginRedirect}
+                    className="w-full mt-6 py-2 text-sm text-cyan-400 hover:text-cyan-300 transition-colors uppercase tracking-widest font-semibold"
+                  >
+                    ¿Ya tienes cuenta? Inicia sesión
+                  </button>
+                )}
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="code"
+              initial={{ x: 300, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: -300, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 200 }}
+            >
+              <div className="bg-gradient-to-br from-gray-900/80 to-gray-950/80 backdrop-blur-xl rounded-3xl p-8 border-2 border-cyan-500/30 shadow-[0_0_50px_rgba(34,211,238,0.3)]">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-14 h-14 rounded-full bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center shadow-lg shadow-cyan-500/50">
+                    <Shield className="w-7 h-7 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl text-white font-bold">Paso 2 de 2</h3>
+                    <p className="text-sm text-cyan-300">Verifica tu código</p>
+                  </div>
                 </div>
 
-                {/* Redes Sociales */}
-                <div className="grid grid-cols-2 gap-4 relative z-10">
-                  <button type="button" onClick={() => playSound('click')} onMouseEnter={() => playSound('focus')} className="flex items-center justify-center gap-2 py-4 px-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors">
-                    <img alt="Google" className="w-5 h-5" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAdya9BpcYlpfeDC8o13Dmf-wCKyijyGUW3NdypLg-nRECzg3TH1UVMhv80UMMl6f_CQXWwcT7Jv5sPkgVb0IC7-QctOsw46lv3PVJGzCDggIq0pX1pxAZlW-fCPP3XuQ4xGvpbXaqWxVxiSC7BQILXooMkO-p9rPaJXiwafW0IamZwfEv1FfRjjI37iggYUP0JR7dPpS_EASJ5p9BbCwN9HY0kr-j5zxsasePpviF9uIh2__tKOvVK3qVlMVHKUSeLbdzkhZvAVOo" />
-                    <span className="text-[10px] font-bold tracking-widest text-white">GOOGLE</span>
-                  </button>
-                  <button type="button" onClick={() => playSound('click')} onMouseEnter={() => playSound('focus')} className="flex items-center justify-center gap-2 py-4 px-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors">
-                    <span className="material-symbols-outlined text-white text-xl" translate="no">apple</span>
-                    <span className="text-[10px] font-bold tracking-widest text-white">APPLE ID</span>
-                  </button>
-                </div>
-
-                {/* Enlace al login */}
-                <div className="mt-10 text-center relative z-10">
-                  <p className="text-[#aaaab6]/70 text-xs">
-                    ¿Ya tienes una cuenta?
-                    <button
-                      type="button"
-                      onClick={() => { playSound('click'); if (onLoginRedirect) onLoginRedirect(); }}
-                      onMouseEnter={() => playSound('focus')}
-                      className="text-[#33d8fb] font-bold ml-1 hover:text-[#c180ff] transition-colors uppercase tracking-widest text-[11px]"
-                    >
-                      Inicia Sesión
-                    </button>
+                <div className="mb-5 p-4 bg-cyan-500/10 border-2 border-cyan-500/30 rounded-2xl">
+                  <p className="text-sm text-cyan-300 flex items-center gap-2">
+                    <Mail className="w-4 h-4" />
+                    Código enviado a <span className="font-mono font-bold">{email}</span>
                   </p>
                 </div>
-              </>
-            ) : (
-              <>
-                {/* Formulario de Validación de Código */}
-                <form className="space-y-6 relative z-10" onSubmit={handleVerifyCode}>
-                  <div className="text-center mb-6">
-                    <span className="material-symbols-outlined text-4xl text-[#c180ff] drop-shadow-[0_0_10px_rgba(193,128,255,0.8)] mb-2" translate="no">verified_user</span>
-                    <h3 className="text-lg font-bold tracking-[0.2em] text-[#ededf9] uppercase">Verifica tu origen</h3>
-                    <p className="text-[0.65rem] text-[#aaaab6]/70 uppercase tracking-widest mt-2 px-4">
-                      Secuencia de confirmación enviada a <br /><span className="text-[#33d8fb]">{email}</span>
-                    </p>
-                  </div>
 
-                  <div className="space-y-2">
-                    <label className="block text-[0.7rem] font-bold uppercase tracking-widest text-[#c180ff]/80 ml-1">Decodificador Neural</label>
-                    <div className="relative group">
-                      <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[#aaaab6]/50 group-focus-within:text-[#c180ff] transition-colors" translate="no">dialpad</span>
-                      <input
-                        value={code}
-                        onChange={(e) => setCode(e.target.value)}
-                        onFocus={() => playSound('focus')}
-                        onKeyDown={(e) => { if (e.key.length === 1 || e.key === 'Backspace') playSound('type') }}
-                        className="w-full bg-black/30 border border-[#464751]/30 rounded-2xl py-4 pl-12 pr-4 text-center text-xl tracking-[0.5em] font-mono text-white focus:ring-2 focus:ring-[#c180ff]/50 focus:border-[#c180ff] outline-none transition-all placeholder:text-[#aaaab6]/30"
-                        placeholder="000000"
-                        type="text"
-                        maxLength={6}
-                      />
-                    </div>
+                <form onSubmit={handleVerifyCode} className="space-y-5">
+                  <div>
+                    <label className="block text-sm text-cyan-300 mb-2 font-semibold">
+                      Código de verificación
+                    </label>
+                    <input
+                      type="text"
+                      value={code}
+                      onChange={(e) => setCode(e.target.value)}
+                      placeholder="000000"
+                      maxLength={6}
+                      className="w-full px-4 py-4 bg-gray-950/50 border-2 border-cyan-500/30 rounded-2xl text-center text-3xl tracking-[0.5em] font-mono focus:outline-none focus:border-blue-400 focus:shadow-[0_0_20px_rgba(59,130,246,0.3)] transition-all text-white placeholder:text-gray-600"
+                    />
                   </div>
 
                   {error && (
-                    <div className="text-red-400 text-xs font-bold uppercase tracking-widest text-center">
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="text-red-400 text-sm bg-red-500/10 border border-red-500/30 rounded-xl p-3"
+                    >
                       {error}
-                    </div>
+                    </motion.div>
                   )}
 
-                  {/* Botón CTA Confirmar */}
-                  <button onMouseEnter={() => playSound('focus')} className="w-full py-5 rounded-2xl bg-gradient-to-r from-[#c180ff] to-[#33d8fb] text-white font-extrabold uppercase tracking-[0.2em] text-sm neon-glow active:scale-95 transition-all duration-200 mt-4 shadow-lg shadow-[#c180ff]/20" type="submit">
-                    CONFIRMAR VÍNCULO
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    type="submit"
+                    className="w-full py-4 bg-gradient-to-r from-cyan-600 via-blue-500 to-purple-500 hover:from-cyan-500 hover:via-blue-500 hover:to-purple-600 rounded-2xl flex items-center justify-center gap-2 transition-all font-bold text-lg shadow-lg shadow-cyan-500/50"
+                  >
+                    <Check className="w-5 h-5" />
+                    <span>Verificar y crear cuenta</span>
+                  </motion.button>
+
+                  <button
+                    type="button"
+                    onClick={() => setStep('form')}
+                    className="w-full py-2 text-sm text-gray-400 hover:text-white transition-colors"
+                  >
+                    ← Cambiar datos
                   </button>
-
-                  <div className="mt-6 text-center">
-                    <button
-                      type="button"
-                      onClick={() => { playSound('click'); setStep('form'); }}
-                      onMouseEnter={() => playSound('focus')}
-                      className="text-[#aaaab6]/70 hover:text-[#ededf9] transition-colors text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-1 mx-auto"
-                    >
-                      <span className="material-symbols-outlined text-[14px]">arrow_back</span>
-                      Regresar
-                    </button>
-                  </div>
                 </form>
-              </>
-            )}
-          </div>
-        </div>
-      </main>
-
-      {/* Textura de fondo (estrellas) */}
-      <div className="fixed inset-0 pointer-events-none opacity-30 z-0" style={{ backgroundImage: "url('https://lh3.googleusercontent.com/aida-public/AB6AXuDka1aYM9_D4okRFySQiSRk7GZOtL707YmZ8VFhBItAzCWnhDqnPirCNT7Uz2LVBHg2KRZrkYgkR-uawxuq2oKbBJnqE0DVPYBDqHXp4imLmjRx-SYauLTiJAcjnxlbCmcpiUXugfPxZ_D4UrrAe-6KQWRMwYzHluEvOXSToT1AxAkmfODUDVvAOfQoMjxwCEXb0GUnnc7YuWL00rEbe7JqYorVN6dYlGO7PRMOcmYrNfK3GayOa_ycUQqHQJ5vi2EJFKa6IwMuY50')" }}></div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }
