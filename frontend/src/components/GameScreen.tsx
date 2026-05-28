@@ -621,7 +621,7 @@ export function GameScreen({ initialLevel = 1, onBackToLobby }: GameScreenProps)
           )}
 
           <div
-            className="grid gap-1 w-full max-w-5xl"
+            className="grid gap-2 w-full max-w-6xl"
             style={{ gridTemplateColumns: `repeat(${cfg.cols}, 1fr)` }}
           >
             <AnimatePresence mode="popLayout">
@@ -630,7 +630,7 @@ export function GameScreen({ initialLevel = 1, onBackToLobby }: GameScreenProps)
                   key={card.id}
                   ref={el => { cardRefs.current[idx] = el; }}
                   style={{ aspectRatio: '3/4' }}
-                  className="max-h-24"
+                  className="max-h-32"
                   layout
                   initial={isShuffling ? { scale: 0.8, opacity: 0.5 } : false}
                   animate={isShuffling ? { scale: 1, opacity: 1 } : {}}

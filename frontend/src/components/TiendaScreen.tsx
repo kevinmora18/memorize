@@ -1,9 +1,10 @@
 import { motion } from 'framer-motion';
 import { ArrowLeft, ShoppingCart, Sparkles, Lock, Check, Frame, Palette, LayoutGrid, Star } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface TiendaScreenProps {
   onBack: () => void;
+  userId?: string;
 }
 
 type ShopCategory = 'cards' | 'frames' | 'skins' | 'boards';
@@ -412,7 +413,8 @@ const RARITY_COLORS = {
   legendary: 'border-yellow-500',
 };
 
-export function TiendaScreen({ onBack }: TiendaScreenProps) {
+export function TiendaScreen({ onBack, userId }: TiendaScreenProps) {
+  const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:5175';
   const [selectedCategory, setSelectedCategory] = useState<ShopCategory>('cards');
   const [selectedPack, setSelectedPack] = useState<string | null>(null);
   
@@ -448,8 +450,21 @@ export function TiendaScreen({ onBack }: TiendaScreenProps) {
     return localStorage.getItem('equippedBoard') || 'default';
   });
   
-  const [coins] = useState(12540);
-  const [gems] = useState(2350);
+  const [coins, setCoins] = useState(0);
+  const [gems, setGems] = useState(0);
+
+  // Cargar monedas del usuario
+  useEffect(() => {
+    if (userId) {
+      fetch(`${API_BASE}/api/users/${userId}`)
+        .then(res => res.json())
+        .then(data => {
+          setCoins(data.coins || 0);
+          setGems(data.gems || 0);
+        })
+        .catch(err => console.error('Error loading currency:', err));
+    }
+  }, [userId]);
 
   const handleBuyPack = (pack: CardPack) => {
     if (pack.owned || ownedPacks.includes(pack.id)) {

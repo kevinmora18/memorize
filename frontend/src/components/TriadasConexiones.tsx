@@ -10,6 +10,7 @@ interface TriadasConexionesProps {
   modo: ModoTriada;
   onComplete: () => void;
   onBackToMenu: () => void;
+  level?: number;
 }
 
 interface Card {
@@ -50,9 +51,16 @@ const MODE_CONFIG: Record<ModoTriada, { name: string; gradient: string; glowColo
   tecnologia: { name: 'TECNOLOGÍA', gradient: 'from-pink-500 via-rose-500 to-red-500', glowColor: '#ec4899', emoji: '⚡' },
 };
 
-export function TriadasConexiones({ universe, modo, onComplete, onBackToMenu }: TriadasConexionesProps) {
+export function TriadasConexiones({ universe, modo, onComplete, onBackToMenu, level = 1 }: TriadasConexionesProps) {
   const config = MODE_CONFIG[modo];
   const triads = TRIADS_BY_MODE[modo];
+
+  const getTriadsCount = (lvl: number) => {
+    if (lvl <= 2) return 3;
+    if (lvl <= 4) return 4;
+    if (lvl <= 6) return 5;
+    return 6;
+  };
 
   const [cards, setCards] = useState<Card[]>([]);
   const [selectedCards, setSelectedCards] = useState<number[]>([]);
@@ -89,8 +97,8 @@ export function TriadasConexiones({ universe, modo, onComplete, onBackToMenu }: 
   }, [gamePhase, timeLeft]);
 
   const initializeGame = () => {
-    // Tomar 4 tríadas para el juego
-    const selectedTriads = triads.slice(0, 4);
+    const triadsCount = getTriadsCount(level);
+    const selectedTriads = triads.slice(0, triadsCount);
     
     // Crear cartas de todas las tríadas
     const allCards: Card[] = [];

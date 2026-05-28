@@ -10,6 +10,7 @@ interface ParejasConexionesProps {
   modo: ModoConexion;
   onComplete: () => void;
   onBackToMenu: () => void;
+  level?: number; // Nivel opcional, por defecto 1
 }
 
 interface Card {
@@ -75,7 +76,7 @@ const UNIVERSE_CONFIG: Record<Universe, { name: string; bgGradient: string }> = 
   lunaris: { name: 'Lunaris', bgGradient: 'from-purple-950 via-violet-950 to-black' },
 };
 
-export function ParejasConexiones({ universe, modo, onComplete, onBackToMenu }: ParejasConexionesProps) {
+export function ParejasConexiones({ universe, modo, onComplete, onBackToMenu, level = 1 }: ParejasConexionesProps) {
   const config = MODE_CONFIG[modo];
   const universeConfig = UNIVERSE_CONFIG[universe];
   const pairs = PAIRS_BY_MODE[modo];
@@ -91,6 +92,14 @@ export function ParejasConexiones({ universe, modo, onComplete, onBackToMenu }: 
   const [showConnection, setShowConnection] = useState(false);
   const [connectionText, setConnectionText] = useState("");
   const [mistakes, setMistakes] = useState(0);
+
+  // Calcular cantidad de parejas según el nivel
+  const getPairsCount = (lvl: number) => {
+    if (lvl <= 2) return 4;      // Niveles 1-2: 4 parejas (8 cartas)
+    if (lvl <= 4) return 6;      // Niveles 3-4: 6 parejas (12 cartas)
+    if (lvl <= 6) return 7;      // Niveles 5-6: 7 parejas (14 cartas)
+    return 8;                    // Nivel 7+: 8 parejas (16 cartas)
+  };
 
   // Initialize game
   useEffect(() => {
@@ -115,8 +124,9 @@ export function ParejasConexiones({ universe, modo, onComplete, onBackToMenu }: 
   }, [gamePhase, timeLeft]);
 
   const initializeGame = () => {
-    // Tomar 6 parejas para el juego
-    const selectedPairs = pairs.slice(0, 6);
+    // Tomar parejas según el nivel
+    const pairsCount = getPairsCount(level);
+    const selectedPairs = pairs.slice(0, pairsCount);
     
     // Crear cartas de todas las parejas
     const allCards: Card[] = [];

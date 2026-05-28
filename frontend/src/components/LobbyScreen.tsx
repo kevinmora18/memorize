@@ -3,22 +3,39 @@ import {
   Hexagon, Mail, Users, Boxes, InfinityIcon, Settings,
   Target, Skull, Gamepad2, Zap, LogOut, X, TrendingUp
 } from 'lucide-react';
-import { loadPlayerStats, getRankByXP, getProgressToNextRank, getNextRank, type PlayerStats } from '../lib/playerEvolution';
+import { loadPlayerStats, getRankByXP, getProgressToNextRank, getNextRank, type PlayerStats, RANKS } from '../lib/playerEvolution';
 
 interface LobbyScreenProps {
   onStartMode: (mode: string) => void;
   onLogout: () => void;
+  userRole?: string;
+  userId?: string;
 }
 
-export function LobbyScreen({ onStartMode, onLogout }: LobbyScreenProps) {
+export function LobbyScreen({ onStartMode, onLogout, userRole, userId }: LobbyScreenProps) {
+  const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:5175';
   const [showMessages, setShowMessages] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showRanksModal, setShowRanksModal] = useState(false);
   const [playerStats, setPlayerStats] = useState<PlayerStats | null>(null);
+  const [coins, setCoins] = useState(0);
+  const [gems, setGems] = useState(0);
 
   useEffect(() => {
     const stats = loadPlayerStats();
     setPlayerStats(stats);
-  }, []);
+    
+    // Cargar monedas y gemas del usuario desde la API
+    if (userId) {
+      fetch(`${API_BASE}/api/users/${userId}`)
+        .then(res => res.json())
+        .then(data => {
+          setCoins(data.coins || 0);
+          setGems(data.gems || 0);
+        })
+        .catch(err => console.error('Error loading currency:', err));
+    }
+  }, [userId]);
 
   if (!playerStats) return null;
 
@@ -92,21 +109,46 @@ export function LobbyScreen({ onStartMode, onLogout }: LobbyScreenProps) {
         
         <nav className="flex gap-8 text-sm font-semibold tracking-wider uppercase">
           <a className="text-white hover:text-cyan-400 transition-colors cursor-pointer border-b-2 border-purple-500">LOBBY</a>
-          <a className="text-gray-400 hover:text-white transition-colors cursor-pointer" onClick={() => onStartMode('profile')}>EVOLUCIÓN</a>
+          <a
+            className="flex items-center gap-1.5 cursor-pointer transition-all group"
+            onClick={() => setShowRanksModal(true)}
+            title={`${currentRank.name} — ${currentRank.description}`}
+          >
+            {/* Rank badge */}
+            <span
+              className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border text-xs font-bold uppercase tracking-wider transition-all group-hover:scale-105"
+              style={{
+                borderColor: currentRank.color + '99',
+                background: currentRank.color + '22',
+                color: currentRank.color,
+                boxShadow: `0 0 8px ${currentRank.color}55`,
+              }}
+            >
+              <span className="text-base leading-none">{currentRank.icon}</span>
+              <span>{currentRank.name}</span>
+            </span>
+          </a>
           <a className="text-gray-400 hover:text-white transition-colors cursor-pointer" onClick={() => onStartMode('tienda')}>TIENDA</a>
           <a className="text-gray-400 hover:text-white transition-colors cursor-pointer" onClick={() => onStartMode('ranked')}>RANKED</a>
           <a className="text-gray-400 hover:text-white transition-colors cursor-pointer" onClick={() => onStartMode('profile')}>PERFIL</a>
+          {userRole === 'admin' && (
+            <a className="text-red-400 hover:text-red-300 transition-colors cursor-pointer font-bold" onClick={() => onStartMode('admin')}>
+              🛡️ ADMIN
+            </a>
+          )}
         </nav>
 
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-3 text-sm font-semibold">
-            <div className="flex items-center gap-1">
-              <Hexagon className="w-4 h-4 text-cyan-400" />
-              <span className="text-white">12,540</span>
+            {/* Monedas */}
+            <div className="flex items-center gap-1 px-3 py-1 bg-yellow-500/20 rounded-full border border-yellow-500/50">
+              <span className="text-xl">💰</span>
+              <span className="text-white font-bold">{coins.toLocaleString()}</span>
             </div>
-            <div className="flex items-center gap-1">
-              <Hexagon className="w-4 h-4 text-blue-400 fill-blue-400" />
-              <span className="text-white">2,350</span>
+            {/* Diamantes/Gemas */}
+            <div className="flex items-center gap-1 px-3 py-1 bg-cyan-500/20 rounded-full border border-cyan-500/50">
+              <span className="text-xl">💎</span>
+              <span className="text-white font-bold">{gems.toLocaleString()}</span>
             </div>
           </div>
           <div className="flex items-center gap-3 text-gray-400">
@@ -319,6 +361,111 @@ export function LobbyScreen({ onStartMode, onLogout }: LobbyScreenProps) {
                 <span className="text-sm text-gray-400">Notificaciones</span>
                 <input type="checkbox" className="w-5 h-5" />
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Ranks Modal */}
+      {showRanksModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowRanksModal(false)}>
+          <div className="glass-panel rounded-xl p-6 max-w-2xl w-full border border-cyan-500/30 max-h-[90vh] overflow-y-auto custom-scrollbar" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-6 sticky top-0 bg-[#0a0f1e]/90 backdrop-blur-md pb-4 border-b border-white/10 z-10">
+              <h3 className="text-2xl font-bold text-white flex items-center gap-2">
+                <TrendingUp className="text-cyan-400" />
+                CAMINO DE LA EVOLUCIÓN
+              </h3>
+              <button onClick={() => setShowRanksModal(false)} className="hover:text-white transition-colors p-1"><X className="w-6 h-6" /></button>
+            </div>
+            
+            <div className="space-y-4 relative">
+              {RANKS.map((rank, index) => {
+                const isCurrentRank = currentRank.id === rank.id;
+                const isPassedRank = playerStats.xp >= rank.minXP;
+                
+                return (
+                  <div 
+                    key={rank.id} 
+                    className={`relative p-4 rounded-xl border flex gap-4 transition-all ${
+                      isCurrentRank 
+                        ? 'border-cyan-400 bg-cyan-900/20 shadow-[0_0_15px_rgba(0,255,255,0.15)] transform scale-[1.02] z-10' 
+                        : isPassedRank
+                          ? 'border-purple-500/30 bg-purple-900/10 opacity-80'
+                          : 'border-gray-800 bg-gray-900/30 opacity-50 grayscale'
+                    }`}
+                  >
+                    {/* Connection Line */}
+                    {index < RANKS.length - 1 && (
+                      <div className={`absolute left-10 top-14 w-0.5 h-8 ${isPassedRank ? 'bg-cyan-500/50' : 'bg-gray-800'}`} style={{ zIndex: -1 }}></div>
+                    )}
+                    
+                    <div className="flex flex-col items-center justify-start z-10 bg-transparent">
+                      <div 
+                        className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl border-2 ${
+                          isCurrentRank ? 'border-cyan-400 shadow-[0_0_10px_rgba(0,255,255,0.5)]' : isPassedRank ? 'border-purple-500/50' : 'border-gray-700'
+                        } bg-[#0a0f1e]`}
+                      >
+                        {rank.icon}
+                      </div>
+                    </div>
+                    
+                    <div className="flex-grow">
+                      <div className="flex justify-between items-start mb-1">
+                        <h4 className={`text-xl font-bold ${isCurrentRank ? 'text-cyan-400' : isPassedRank ? 'text-white' : 'text-gray-500'}`}>
+                          {rank.name}
+                        </h4>
+                        <span className="text-xs font-mono text-gray-400 bg-black/40 px-2 py-1 rounded">
+                          {rank.minXP === 0 ? 'Inicio' : `${rank.minXP} XP`}
+                        </span>
+                      </div>
+                      
+                      <p className={`text-sm mb-3 ${isCurrentRank ? 'text-cyan-100' : 'text-gray-400'}`}>
+                        {rank.description}
+                      </p>
+                      
+                      <div className="flex flex-wrap gap-2">
+                        {rank.rewards.map((reward, i) => (
+                          <span 
+                            key={i} 
+                            className={`text-xs px-2 py-1 rounded-md border ${
+                              isCurrentRank 
+                                ? 'border-cyan-500/30 bg-cyan-500/10 text-cyan-300' 
+                                : isPassedRank
+                                  ? 'border-purple-500/30 bg-purple-500/10 text-purple-300'
+                                  : 'border-gray-700 bg-gray-800 text-gray-500'
+                            }`}
+                          >
+                            {reward}
+                          </span>
+                        ))}
+                      </div>
+                      
+                      {isCurrentRank && (
+                        <div className="mt-4">
+                          <div className="flex justify-between text-xs mb-1">
+                            <span className="text-cyan-400">Progreso actual</span>
+                            <span className="text-white font-mono">{playerStats.xp} / {rank.maxXP === Infinity ? 'MÁX' : rank.maxXP} XP</span>
+                          </div>
+                          <div className="w-full h-2 bg-gray-900 rounded-full overflow-hidden border border-gray-700">
+                            <div 
+                              className="h-full bg-gradient-to-r from-purple-500 to-cyan-400"
+                              style={{ width: `${progress}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {isCurrentRank && (
+                      <div className="absolute top-4 right-4 animate-pulse">
+                        <div className="text-[10px] font-bold text-black bg-cyan-400 px-2 py-0.5 rounded uppercase tracking-wider">
+                          Tú estás aquí
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>

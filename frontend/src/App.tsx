@@ -17,9 +17,11 @@ import { InfiniteMode } from './components/InfiniteMode';
 import { ChallengeMode } from './components/ChallengeMode';
 import { AIFriendsGame } from './components/AIFriendsGame';
 import { AIRoomLobby } from './components/AIRoomLobby';
+import { AIRoomWaiting } from './components/AIRoomWaiting';
 import { ProfileScreen } from './components/ProfileScreen';
 import { RankedScreen } from './components/RankedScreen';
 import { TiendaScreen } from './components/TiendaScreen';
+import { AdminPanel } from './components/AdminPanel';
 import { ParejasConexiones } from './components/ParejasConexiones';
 import { TriadasConexiones } from './components/TriadasConexiones';
 import { loadPlayerStats, savePlayerStats, addXP } from './lib/playerEvolution';
@@ -28,12 +30,13 @@ import socket from './lib/socket';
 export type Universe = 'volcania' | 'frostheim' | 'neural' | 'verdalis' | 'lunaris';
 export type BossType = 'naturaleza' | 'ciencia' | 'humano' | 'ecosistema' | 'tecnologia';
 
-export type GameScreen = 'login' | 'register' | 'lobby' | 'roomWaiting' | 'multiplayerGame' | 'finalResults' | 'menu' | 'game' | 'boss' | 'boss-select' | 'reward' | 'classic' | 'classicLevelSelect' | 'loading' | 'infinite' | 'challenge' | 'ai-friends' | 'ai-room-lobby' | 'profile' | 'ranked' | 'tienda';
+export type GameScreen = 'login' | 'register' | 'lobby' | 'roomWaiting' | 'multiplayerGame' | 'finalResults' | 'menu' | 'game' | 'boss' | 'boss-select' | 'reward' | 'classic' | 'classicLevelSelect' | 'loading' | 'infinite' | 'challenge' | 'ai-friends' | 'ai-room-lobby' | 'ai-room-waiting' | 'profile' | 'ranked' | 'tienda' | 'admin';
 
 export type Player = {
   id: string;
   email: string;
   teamId: number;
+  role?: string;
 };
 
 export type Room = {
@@ -98,7 +101,7 @@ export default function App() {
   const handleLoginSuccess = (email: string) => {
     (async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/login`, {
+        const res = await fetch(`${API_BASE}/api/auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email }),
@@ -115,6 +118,7 @@ export default function App() {
           setCurrentScreen('loading');
         }
       } catch (err) {
+        console.error('Error en login:', err);
         const player: Player = { id: Date.now().toString(), email, teamId: 0 };
         setCurrentUser(player);
         setPostLoadingScreen('lobby');
@@ -275,12 +279,17 @@ export default function App() {
             } else if (mode === 'tienda') {
               setCurrentScreen('tienda');
               return;
+            } else if (mode === 'admin') {
+              setCurrentScreen('admin');
+              return;
             } else {
               setPostLoadingScreen('menu');
             }
             setCurrentScreen('loading');
           }}
           onLogout={handleLogout}
+          userRole={currentUser.role}
+          userId={currentUser.id}
         />
       )}
 
@@ -426,6 +435,15 @@ export default function App() {
         />
       )}
 
+      {currentScreen === 'ai-room-waiting' && (
+        <AIRoomWaiting 
+          onBackToLobby={() => setCurrentScreen('lobby')}
+          onStartGame={() => {
+            setCurrentScreen('ai-friends');
+          }}
+        />
+      )}
+
       {currentScreen === 'profile' && (
         <ProfileScreen onBack={() => setCurrentScreen('lobby')} />
       )}
@@ -435,7 +453,14 @@ export default function App() {
       )}
 
       {currentScreen === 'tienda' && (
-        <TiendaScreen onBack={() => setCurrentScreen('lobby')} />
+        <TiendaScreen onBack={() => setCurrentScreen('lobby')} userId={currentUser?.id} />
+      )}
+
+      {currentScreen === 'admin' && currentUser && (
+        <AdminPanel 
+          onBack={() => setCurrentScreen('lobby')} 
+          currentUserId={currentUser.id}
+        />
       )}
     </div>
   );

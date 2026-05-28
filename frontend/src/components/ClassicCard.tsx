@@ -1,6 +1,7 @@
 
 import { motion } from 'framer-motion';
 import { Bomb, Zap } from 'lucide-react';
+import { getEquippedSkinStyle } from '../lib/shopSystem';
 
 export interface CardData {
   id: string;
@@ -26,6 +27,7 @@ interface ClassicCardProps {
 
 export function ClassicCard({ card, onClick, isShaking, isBouncing, isExploding, gamePhase }: ClassicCardProps) {
   const isVisible = card.isFlipped || card.isMatched;
+  const equippedSkinStyle = getEquippedSkinStyle();
 
   return (
     <motion.div
@@ -50,14 +52,11 @@ export function ClassicCard({ card, onClick, isShaking, isBouncing, isExploding,
         animate={{ rotateY: isVisible ? 180 : 0 }}
         transition={{ duration: 0.55, ease: [0.23, 1, 0.32, 1] }}
       >
-        {/* Card Back */}
+        {/* Card Back - Con skin equipado */}
         <div
-          className="absolute inset-0 rounded-2xl flex items-center justify-center overflow-hidden border-2"
+          className={`absolute inset-0 rounded-2xl flex items-center justify-center overflow-hidden border-2 ${equippedSkinStyle}`}
           style={{
             backfaceVisibility: 'hidden',
-            background: card.isDark
-              ? 'rgba(5,5,20,0.95)'
-              : 'linear-gradient(135deg, rgba(30,20,60,0.95) 0%, rgba(10,10,40,0.95) 100%)',
             borderColor: card.isDark ? 'rgba(139,92,246,0.3)' : 'rgba(139,92,246,0.6)',
             boxShadow: card.isDark
               ? '0 0 8px rgba(139,92,246,0.2), inset 0 0 20px rgba(0,0,0,0.8)'
@@ -67,10 +66,10 @@ export function ClassicCard({ card, onClick, isShaking, isBouncing, isExploding,
           {!card.isDark && (
             <>
               <div className="absolute inset-0 opacity-20"
-                style={{ background: 'radial-gradient(circle at 30% 30%, rgba(139,92,246,0.4), transparent 60%)' }} />
+                style={{ background: 'radial-gradient(circle at 30% 30%, rgba(255,255,255,0.3), transparent 60%)' }} />
               <div className="text-2xl opacity-30 select-none">✦</div>
-              <div className="absolute top-1 right-1 w-2 h-2 rounded-full bg-purple-400 opacity-40" />
-              <div className="absolute bottom-1 left-1 w-1 h-1 rounded-full bg-cyan-400 opacity-40" />
+              <div className="absolute top-1 right-1 w-2 h-2 rounded-full bg-white opacity-40" />
+              <div className="absolute bottom-1 left-1 w-1 h-1 rounded-full bg-white opacity-40" />
             </>
           )}
           {card.isDark && (

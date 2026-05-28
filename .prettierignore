@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+
+# Build
+dist/
+build/
+coverage/
+
+# Logs
+*.log
+
+# Environment
+.env*
+
+# Cache
+.cache/
+.parcel-cache/
+
+# Misc
+*.min.js
+*.min.css

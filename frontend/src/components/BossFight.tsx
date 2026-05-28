@@ -59,7 +59,7 @@ export function BossFight({ universe, bossType, onBossDefeated, onBackToMenu }: 
   const [combo, setCombo] = useState(0);
   const [bossRage, setBossRage] = useState(0);
   const [failCount, setFailCount] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(60);
+  const [timeLeft, setTimeLeft] = useState(90);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [currentAttack, setCurrentAttack] = useState("");
   const [bossLaughing, setBossLaughing] = useState(false);
@@ -102,7 +102,7 @@ export function BossFight({ universe, bossType, onBossDefeated, onBackToMenu }: 
   }, [gamePhase, bossType]);
 
   const initializeGame = () => {
-    const pairCount = 4;
+    const pairCount = 8;
     const selectedSymbols = boss.symbols.slice(0, pairCount);
     const gameSymbols = [...selectedSymbols, ...selectedSymbols];
     const shuffled = gameSymbols

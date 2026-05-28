@@ -9,6 +9,8 @@ interface Room {
   host: string;
   players: string[];
   maxPlayers: number;
+  gameMode: 'classic' | 'connections' | 'triads';
+  cardCount: number; // Cantidad de pares/grupos
 }
 
 interface ChatMessage {
@@ -20,7 +22,7 @@ interface ChatMessage {
 
 interface AIRoomLobbyProps {
   onBackToLobby: () => void;
-  onStartGame: (players: string[]) => void;
+  onStartGame: () => void;
 }
 
 export function AIRoomLobby({ onBackToLobby, onStartGame }: AIRoomLobbyProps) {
@@ -28,12 +30,25 @@ export function AIRoomLobby({ onBackToLobby, onStartGame }: AIRoomLobbyProps) {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [currentRoom, setCurrentRoom] = useState<Room | null>(null);
   const [roomName, setRoomName] = useState('');
+  const [selectedGameMode, setSelectedGameMode] = useState<'classic' | 'connections' | 'triads'>('classic');
+  const [selectedCardCount, setSelectedCardCount] = useState(4); // Cantidad de pares/grupos
   const [playerName, setPlayerName] = useState('Jugador');
   const [copiedCode, setCopiedCode] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [messageInput, setMessageInput] = useState('');
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Debug
+  useEffect(() => {
+    console.log('AIRoomLobby montado');
+  }, []);
+
+  const gameModes = [
+    { id: 'classic' as const, name: 'Clásico', desc: 'Encuentra pares iguales', icon: '🎮', color: 'from-purple-500 to-pink-500' },
+    { id: 'connections' as const, name: 'Conexiones', desc: 'Parejas relacionadas', icon: '🧠', color: 'from-blue-500 to-cyan-500' },
+    { id: 'triads' as const, name: 'Tríadas', desc: 'Tríos conectados', icon: '⚡', color: 'from-orange-500 to-red-500' },
+  ];
 
   const generateRoomCode = () => {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -48,13 +63,20 @@ export function AIRoomLobby({ onBackToLobby, onStartGame }: AIRoomLobbyProps) {
       name: roomName,
       code: generateRoomCode(),
       host: playerName,
-      players: [playerName, ...botNames], // Llenar automáticamente con bots
+      players: [playerName, ...botNames],
       maxPlayers: 4,
+      gameMode: selectedGameMode,
+      cardCount: selectedCardCount,
     };
 
     setRooms([...rooms, newRoom]);
     setCurrentRoom(newRoom);
     setView('room');
+    
+    // Guardar el modo de juego, nombre de sala y cantidad de cartas para usarlo en AIFriendsGame
+    localStorage.setItem('aiFriendsMode', selectedGameMode);
+    localStorage.setItem('aiFriendsRoomName', roomName);
+    localStorage.setItem('aiFriendsCardCount', selectedCardCount.toString());
     setRoomName('');
   };
 
@@ -91,7 +113,7 @@ export function AIRoomLobby({ onBackToLobby, onStartGame }: AIRoomLobbyProps) {
 
   const handleStartGame = () => {
     if (!currentRoom) return;
-    onStartGame(currentRoom.players);
+    onStartGame();
   };
 
   const copyRoomCode = () => {
@@ -262,11 +284,11 @@ export function AIRoomLobby({ onBackToLobby, onStartGame }: AIRoomLobbyProps) {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="max-w-md mx-auto relative z-10"
+            className="max-w-2xl mx-auto relative z-10"
           >
             <div className="p-8 bg-gray-800/50 rounded-xl border border-gray-700">
               <h2 className="text-2xl font-bold mb-6">Crear Nueva Sala</h2>
-              <div className="space-y-4">
+              <div className="space-y-6">
                 <div>
                   <label className="block text-sm text-gray-400 mb-2">Nombre de la sala:</label>
                   <input
@@ -276,6 +298,55 @@ export function AIRoomLobby({ onBackToLobby, onStartGame }: AIRoomLobbyProps) {
                     className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-green-500"
                     placeholder="Mi Sala Épica"
                   />
+                </div>
+
+                {/* Selección de Modo de Juego */}
+                <div>
+                  <label className="block text-sm text-gray-400 mb-3">Modo de Juego:</label>
+                  <div className="grid grid-cols-3 gap-4">
+                    {gameModes.map((mode) => (
+                      <motion.div
+                        key={mode.id}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => setSelectedGameMode(mode.id)}
+                        className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                          selectedGameMode === mode.id
+                            ? 'border-green-500 bg-green-500/20'
+                            : 'border-gray-700 bg-gray-800/30 hover:border-gray-600'
+                        }`}
+                      >
+                        <div className="text-center">
+                          <div className="text-4xl mb-2">{mode.icon}</div>
+                          <h3 className="font-bold text-white mb-1">{mode.name}</h3>
+                          <p className="text-xs text-gray-400">{mode.desc}</p>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Selección de Cantidad de Cartas */}
+                <div>
+                  <label className="block text-sm text-gray-400 mb-3">
+                    Cantidad de {selectedGameMode === 'triads' ? 'Tríadas' : 'Pares'}: {selectedCardCount}
+                  </label>
+                  <div className="flex items-center gap-4">
+                    <input
+                      type="range"
+                      min="3"
+                      max={selectedGameMode === 'triads' ? '6' : '8'}
+                      value={selectedCardCount}
+                      onChange={(e) => setSelectedCardCount(parseInt(e.target.value))}
+                      className="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-green-500"
+                    />
+                    <div className="text-center min-w-[80px] px-4 py-2 bg-gray-900/50 border border-gray-700 rounded-lg">
+                      <span className="text-2xl font-bold text-green-400">{selectedCardCount}</span>
+                      <p className="text-xs text-gray-400">
+                        {selectedGameMode === 'triads' ? selectedCardCount * 3 : selectedCardCount * 2} cartas
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="flex gap-3">
@@ -328,6 +399,11 @@ export function AIRoomLobby({ onBackToLobby, onStartGame }: AIRoomLobbyProps) {
                             <Copy className="w-4 h-4 text-green-400" />
                           )}
                         </button>
+                      </div>
+                      <div className="px-3 py-1 bg-purple-500/20 rounded-full">
+                        <span className="text-sm text-purple-300">
+                          {gameModes.find(m => m.id === currentRoom.gameMode)?.icon} {gameModes.find(m => m.id === currentRoom.gameMode)?.name}
+                        </span>
                       </div>
                     </div>
                   </div>
