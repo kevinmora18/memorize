@@ -37,6 +37,10 @@ export type Player = {
   email: string;
   teamId: number;
   role?: string;
+  level?: number;
+  xp?: number;
+  coins?: number;
+  gems?: number;
 };
 
 export type Room = {
@@ -107,19 +111,29 @@ export default function App() {
           body: JSON.stringify({ email }),
         });
         if (res.ok) {
-          const player = await res.json() as Player;
+          const userData = await res.json();
+          const player: Player = { 
+            id: userData.id, 
+            email: userData.email, 
+            teamId: 0,
+            role: userData.role,  // ✅ Agregar el role del backend
+            level: userData.level,
+            xp: userData.xp,
+            coins: userData.coins,
+            gems: userData.gems
+          };
           setCurrentUser(player);
           setPostLoadingScreen('lobby');
           setCurrentScreen('loading');
         } else {
-          const player: Player = { id: Date.now().toString(), email, teamId: 0 };
+          const player: Player = { id: Date.now().toString(), email, teamId: 0, role: 'player' };
           setCurrentUser(player);
           setPostLoadingScreen('lobby');
           setCurrentScreen('loading');
         }
       } catch (err) {
         console.error('Error en login:', err);
-        const player: Player = { id: Date.now().toString(), email, teamId: 0 };
+        const player: Player = { id: Date.now().toString(), email, teamId: 0, role: 'player' };
         setCurrentUser(player);
         setPostLoadingScreen('lobby');
         setCurrentScreen('loading');
