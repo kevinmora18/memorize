@@ -41,8 +41,4 @@ router.put('/:roomId/start', roomController.startGame);
 // DELETE /api/rooms/:roomId - Eliminar sala
 router.delete('/:roomId', roomController.deleteRoom);
 
-// Exportar para compatibilidad con socket handlers antiguos
-// TODO: Migrar handlers.ts para usar RoomManager en lugar del Map
-export const rooms = new Map();
-
 export default router;

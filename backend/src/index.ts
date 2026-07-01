@@ -22,8 +22,6 @@ import { Container } from './Container';
 import authRoutes from './routes/auth';
 import userRoutes from './routes/users';
 import roomRoutes from './routes/rooms';
-
-// Importar rutas restantes (aún no migradas)
 import matchRoutes from './routes/matches';
 import adminRoutes from './routes/admin';
 import leaderboardRoutes from './routes/leaderboard';
@@ -33,9 +31,6 @@ import { SocketManager } from './socket/SocketManager';
 
 // Configuración
 dotenv.config();
-
-// Exportar prisma para compatibilidad con rutas antiguas
-export let prisma: any;
 
 /**
  * Función principal asíncrona
@@ -48,9 +43,6 @@ async function bootstrap() {
   // ============================================
   const container = Container.getInstance();
   await container.initialize();
-  
-  // Exportar prisma para compatibilidad
-  prisma = container.prisma;
 
   // ============================================
   // 2. CONFIGURAR EXPRESS
@@ -69,12 +61,10 @@ async function bootstrap() {
   // 3. CONFIGURAR RUTAS
   // ============================================
   
-  // Rutas con arquitectura POO
+  // Todas las rutas usan arquitectura POO
   app.use('/api/auth', authRoutes);
   app.use('/api/users', userRoutes);
   app.use('/api/rooms', roomRoutes);
-  
-  // Rutas pendientes de migrar
   app.use('/api/matches', matchRoutes);
   app.use('/api/admin', adminRoutes);
   app.use('/api/leaderboard', leaderboardRoutes);

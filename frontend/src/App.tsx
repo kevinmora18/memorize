@@ -5,7 +5,6 @@ import { LobbyScreen } from './components/LobbyScreen';
 import { RoomWaiting } from './components/RoomWaiting';
 import { MultiplayerGame } from './components/MultiplayerGame';
 import { FinalResults } from './components/FinalResults';
-import { MainMenu } from './components/MainMenu';
 import { GameBoard } from './components/GameBoard';
 import { BossFight } from './components/BossFight';
 import { BossSelect } from './components/BossSelect';
@@ -30,7 +29,7 @@ import socket from './lib/socket';
 export type Universe = 'volcania' | 'frostheim' | 'neural' | 'verdalis' | 'lunaris';
 export type BossType = 'naturaleza' | 'ciencia' | 'humano' | 'ecosistema' | 'tecnologia';
 
-export type GameScreen = 'login' | 'register' | 'lobby' | 'roomWaiting' | 'multiplayerGame' | 'finalResults' | 'menu' | 'game' | 'boss' | 'boss-select' | 'reward' | 'classic' | 'classicLevelSelect' | 'loading' | 'infinite' | 'challenge' | 'ai-friends' | 'ai-room-lobby' | 'ai-room-waiting' | 'profile' | 'ranked' | 'tienda' | 'admin';
+export type GameScreen = 'login' | 'register' | 'lobby' | 'roomWaiting' | 'multiplayerGame' | 'finalResults' | 'game' | 'boss' | 'boss-select' | 'reward' | 'classic' | 'classicLevelSelect' | 'loading' | 'infinite' | 'challenge' | 'ai-friends' | 'ai-room-lobby' | 'ai-room-waiting' | 'profile' | 'ranked' | 'tienda' | 'admin';
 
 export type Player = {
   id: string;
@@ -232,7 +231,7 @@ export default function App() {
   };
 
   const handleBackToMenu = () => {
-    setCurrentScreen('menu');
+    setCurrentScreen('lobby');
     setSelectedUniverse(null);
   };
 
@@ -297,7 +296,7 @@ export default function App() {
               setCurrentScreen('admin');
               return;
             } else {
-              setPostLoadingScreen('menu');
+              setPostLoadingScreen('lobby');
             }
             setCurrentScreen('loading');
           }}
@@ -333,13 +332,6 @@ export default function App() {
         />
       )}
       
-      {currentScreen === 'menu' && (
-        <MainMenu 
-          onUniverseSelect={handleUniverseSelect}
-          unlockedPowers={[]}
-          onBackToLobby={handleBackToLobby}
-        />
-      )}
       
       {currentScreen === 'game' && selectedUniverse && (
         <GameBoard
@@ -392,8 +384,8 @@ export default function App() {
       {currentScreen === 'reward' && selectedUniverse && (
         <RewardScreen
           universe={selectedUniverse}
-          onBackToMenu={handleBackToMenu}
-          onReplay={handleReplay}
+          onBackToMenu={() => setCurrentScreen('lobby')}
+          onReplay={() => setCurrentScreen('boss-select')}
         />
       )}
       

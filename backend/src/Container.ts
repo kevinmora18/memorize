@@ -1,11 +1,18 @@
 import { PrismaClient } from '@prisma/client';
 import { UserRepository } from './repositories/UserRepository';
 import { PlayerStatsRepository } from './repositories/PlayerStatsRepository';
+import { MatchRepository } from './repositories/MatchRepository';
 import { AuthService } from './services/AuthService';
 import { UserService } from './services/UserService';
+import { MatchService } from './services/MatchService';
+import { AdminService } from './services/AdminService';
+import { LeaderboardService } from './services/LeaderboardService';
 import { AuthController } from './controllers/AuthController';
 import { RoomController } from './controllers/RoomController';
 import { UserController } from './controllers/UserController';
+import { MatchController } from './controllers/MatchController';
+import { AdminController } from './controllers/AdminController';
+import { LeaderboardController } from './controllers/LeaderboardController';
 import { RoomManager } from './managers/RoomManager';
 
 /**
@@ -32,15 +39,22 @@ export class Container {
   // Repositorios
   public userRepository: UserRepository;
   public statsRepository: PlayerStatsRepository;
+  public matchRepository: MatchRepository;
 
   // Servicios
   public authService: AuthService;
   public userService: UserService;
+  public matchService: MatchService;
+  public adminService: AdminService;
+  public leaderboardService: LeaderboardService;
 
   // Controladores
   public authController: AuthController;
   public roomController: RoomController;
   public userController: UserController;
+  public matchController: MatchController;
+  public adminController: AdminController;
+  public leaderboardController: LeaderboardController;
 
   /**
    * Constructor privado (Singleton)
@@ -61,6 +75,7 @@ export class Container {
     console.log('  🗄️  Creando repositorios...');
     this.userRepository = new UserRepository(this.prisma);
     this.statsRepository = new PlayerStatsRepository(this.prisma);
+    this.matchRepository = new MatchRepository(this.prisma);
 
     // ============================================
     // 3. SERVICIOS (necesitan repositorios)
@@ -68,6 +83,14 @@ export class Container {
     console.log('  ⚙️  Creando servicios...');
     this.authService = new AuthService(this.userRepository);
     this.userService = new UserService(this.userRepository, this.statsRepository);
+    this.matchService = new MatchService(this.matchRepository, this.userRepository, this.statsRepository);
+    this.adminService = new AdminService(this.userRepository, this.matchRepository, this.prisma);
+    this.leaderboardService = new LeaderboardService(
+      this.userRepository,
+      this.statsRepository,
+      this.matchRepository,
+      this.prisma
+    );
 
     // ============================================
     // 4. CONTROLADORES (necesitan servicios)
@@ -76,6 +99,9 @@ export class Container {
     this.authController = new AuthController(this.authService);
     this.roomController = new RoomController(this.roomManager, this.userRepository);
     this.userController = new UserController(this.userService);
+    this.matchController = new MatchController(this.matchService);
+    this.adminController = new AdminController(this.adminService);
+    this.leaderboardController = new LeaderboardController(this.leaderboardService);
 
     console.log('\n✅ Container inicializado con todas las dependencias\n');
   }
@@ -97,6 +123,9 @@ export class Container {
     console.log('🚀 Inicializando servicios asíncronos...');
     await this.authService.initialize();
     await this.userService.initialize();
+    await this.matchService.initialize();
+    await this.adminService.initialize();
+    await this.leaderboardService.initialize();
     console.log('✅ Todos los servicios inicializados\n');
   }
 
