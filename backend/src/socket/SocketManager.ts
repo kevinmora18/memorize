@@ -80,6 +80,7 @@ export class SocketManager {
           gameState: room.getGameState(),
         });
 
+        this.broadcastRoomsUpdate();
         this.log(`${userName} se unió a la sala ${roomId}`);
       } catch (error: any) {
         this.logError('room:join', error);
@@ -107,6 +108,7 @@ export class SocketManager {
           this.roomManager.deleteRoom(roomId);
         }
 
+        this.broadcastRoomsUpdate();
         this.log(`${player?.name} salió de la sala ${roomId}`);
       } catch (error: any) {
         this.logError('room:leave', error);
@@ -127,6 +129,7 @@ export class SocketManager {
           players: room.getPlayers().map(p => p.toJSON()),
         });
 
+        this.broadcastRoomsUpdate();
         this.log(`Jugador ${userId} está ${isReady ? 'listo' : 'no listo'}`);
       } catch (error: any) {
         this.logError('room:ready', error);
@@ -139,20 +142,26 @@ export class SocketManager {
    */
   private registerGameEvents(socket: Socket): void {
     // Iniciar partida
-    socket.on('game:start', ({ roomId, cards }) => {
+    socket.on('game:start', ({ roomId, cards, mode }) => {
       try {
         const room = this.roomManager.getRoom(roomId);
         if (!room) return;
 
-        room.startGame(cards);
+        if (mode) {
+          room.mode = mode;
+        }
+
+        room.startGame(cards, true);
 
         this.io.to(roomId).emit('game:started', {
           gameState: room.getGameState(),
           cards,
           firstTurn: room.getGameState().currentTurn,
+          mode: room.mode,
         });
 
-        this.log(`Partida iniciada en sala ${roomId}`);
+        this.broadcastRoomsUpdate();
+        this.log(`Partida iniciada en sala ${roomId} (Modo: ${room.mode})`);
       } catch (error: any) {
         this.logError('game:start', error);
         socket.emit('game:error', { message: error.message });
@@ -173,15 +182,60 @@ export class SocketManager {
           flippedCards: room.getGameState().flippedCards,
         });
 
-        // Si se voltearon 2 cartas, verificar match
-        if (room.getGameState().flippedCards.length === 2) {
+        // Si se voltearon todas las cartas requeridas (2 para parejas, 3 para tríadas)
+        const required = room.getRequiredFlipsCount();
+        if (room.getGameState().flippedCards.length === required) {
           setTimeout(() => {
             this.checkMatch(roomId, userId);
-          }, 1500);
+          }, 1000);
         }
       } catch (error: any) {
         this.logError('game:flip-card', error);
         socket.emit('game:error', { message: error.message });
+      }
+    });
+
+    // Pasar turno por tiempo
+    socket.on('game:pass-turn', ({ roomId, userId }) => {
+      try {
+        const room = this.roomManager.getRoom(roomId);
+        if (!room) return;
+
+        room.clearFlippedCards();
+        const nextTurn = room.nextTurn();
+
+        this.io.to(roomId).emit('game:turn-changed', {
+          currentTurn: nextTurn,
+          passedBy: userId,
+        });
+      } catch (error: any) {
+        this.logError('game:pass-turn', error);
+      }
+    });
+
+    // Enviar Emote en vivo
+    socket.on('game:emote', ({ roomId, userId, userName, emote }) => {
+      try {
+        this.io.to(roomId).emit('game:emote-received', {
+          userId,
+          userName,
+          emote,
+          timestamp: Date.now(),
+        });
+      } catch (error: any) {
+        this.logError('game:emote', error);
+      }
+    });
+
+    // Petición de revancha
+    socket.on('game:rematch-request', ({ roomId, userId, userName }) => {
+      try {
+        this.io.to(roomId).emit('game:rematch-requested', {
+          userId,
+          userName,
+        });
+      } catch (error: any) {
+        this.logError('game:rematch-request', error);
       }
     });
 
@@ -217,17 +271,18 @@ export class SocketManager {
       const room = this.roomManager.getRoom(roomId);
       if (!room) return;
 
-      const { isMatch, card1Index, card2Index } = room.checkMatch();
+      const { isMatch, cardIndexes } = room.checkMatch();
 
       if (isMatch) {
         // Match encontrado
-        room.registerMatch(userId, card1Index, card2Index);
+        room.registerMatch(userId, cardIndexes);
 
         this.io.to(roomId).emit('game:match-found', {
           playerId: userId,
-          cardIndexes: [card1Index, card2Index],
+          cardIndexes,
           matchedCards: room.getGameState().matchedCards,
           scores: Object.fromEntries(room.getGameState().scores),
+          players: room.getPlayers().map(p => p.toJSON()),
         });
 
         // Verificar si el juego terminó
@@ -240,12 +295,13 @@ export class SocketManager {
             players: room.getPlayers().map(p => p.toJSON()),
           });
 
+          this.broadcastRoomsUpdate();
           this.log(`Partida terminada en sala ${roomId}. Ganador: ${winnerId}`);
         }
       } else {
         // No hay match
         this.io.to(roomId).emit('game:no-match', {
-          cardIndexes: [card1Index, card2Index],
+          cardIndexes,
         });
 
         // Cambiar turno
@@ -260,6 +316,15 @@ export class SocketManager {
       room.clearFlippedCards();
     } catch (error: any) {
       this.logError('checkMatch', error);
+    }
+  }
+
+  private broadcastRoomsUpdate(): void {
+    try {
+      const rooms = this.roomManager.getAvailableRooms().map(r => r.toJSON());
+      this.io.emit('rooms:update', rooms);
+    } catch (error: any) {
+      this.logError('broadcastRoomsUpdate', error);
     }
   }
 

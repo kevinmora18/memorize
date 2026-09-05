@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Target, Trophy, Star, CheckCircle } from 'lucide-react';
+import { soundSystem } from '../lib/soundSystem';
+import { getEquippedPackCards } from '../lib/shopSystem';
+
 
 interface Card {
   id: number;
@@ -25,11 +28,14 @@ interface ChallengeModeProps {
 
 const emojis = ['🌟', '🎮', '🚀', '💎', '🔥', '⚡', '🌈', '🎯'];
 
+
 export function ChallengeMode({ onBackToLobby }: ChallengeModeProps) {
   const [cards, setCards] = useState<Card[]>([]);
   const [flippedCards, setFlippedCards] = useState<number[]>([]);
   const [moves, setMoves] = useState(0);
   const [score, setScore] = useState(0);
+  const [horusCharges, setHorusCharges] = useState(2);
+  const [shieldActive, setShieldActive] = useState(false);
   const [challenges, setChallenges] = useState<Challenge[]>([
     {
       id: 1,
@@ -68,8 +74,11 @@ export function ChallengeMode({ onBackToLobby }: ChallengeModeProps) {
   }, []);
 
   const initializeGame = () => {
-    const gameEmojis = [...emojis, ...emojis];
+    const equipped = getEquippedPackCards();
+    const sourceEmojis = equipped && equipped.length >= 8 ? equipped.slice(0, 8) : ['🌟', '🎮', '🚀', '💎', '🔥', '⚡', '🌈', '🎯'];
+    const gameEmojis = [...sourceEmojis, ...sourceEmojis];
     const shuffled = gameEmojis
+
       .sort(() => Math.random() - 0.5)
       .map((value, index) => ({
         id: index,
@@ -78,16 +87,41 @@ export function ChallengeMode({ onBackToLobby }: ChallengeModeProps) {
         isMatched: false,
       }));
     
-    // Mostrar preview de las cartas al inicio
     setShowPreview(true);
     const previewCards = shuffled.map(card => ({ ...card, isFlipped: true }));
     setCards(previewCards);
+    soundSystem.playLevelUp();
     
-    // Ocultar cartas después de 3 segundos
     setTimeout(() => {
       setCards(shuffled);
       setShowPreview(false);
-    }, 3000);
+      soundSystem.playGlitchSound();
+    }, 2500);
+  };
+
+  const useHorusEye = () => {
+    if (horusCharges <= 0 || showPreview || gameOver) return;
+    setHorusCharges((c) => c - 1);
+    soundSystem.playFreezeSound();
+
+    // Temporarily flip 2 unmatched cards for 1.5s
+    const unmatchedIndices = cards
+      .map((c, i) => (!c.isMatched && !c.isFlipped ? i : -1))
+      .filter((i) => i !== -1);
+
+    if (unmatchedIndices.length < 2) return;
+    const target1 = unmatchedIndices[0];
+    const target2 = unmatchedIndices[1];
+
+    setCards((prev) =>
+      prev.map((c, i) => (i === target1 || i === target2 ? { ...c, isFlipped: true } : c))
+    );
+
+    setTimeout(() => {
+      setCards((prev) =>
+        prev.map((c, i) => (i === target1 || i === target2 ? { ...c, isFlipped: false } : c))
+      );
+    }, 1500);
   };
 
   const updateChallenge = (challengeId: number, increment: number) => {
@@ -128,10 +162,7 @@ export function ChallengeMode({ onBackToLobby }: ChallengeModeProps) {
       return;
     }
 
-    // Sonido al voltear carta
-    const flipSound = new Audio('https://actions.google.com/sounds/v1/foley/swoosh.ogg');
-    flipSound.volume = 0.3;
-    flipSound.play().catch(() => {});
+    soundSystem.playCardFlip();
 
     const newCards = [...cards];
     newCards[index].isFlipped = true;
@@ -145,11 +176,7 @@ export function ChallengeMode({ onBackToLobby }: ChallengeModeProps) {
 
       const [firstIndex, secondIndex] = newFlippedCards;
       if (cards[firstIndex].value === cards[secondIndex].value) {
-        // Match encontrado
-        // Sonido de match exitoso
-        const matchSound = new Audio('https://actions.google.com/sounds/v1/cartoon/pop.ogg');
-        matchSound.volume = 0.5;
-        matchSound.play().catch(() => {});
+        soundSystem.playMatchSound(score / 50 + 1);
         
         setTimeout(() => {
           const updatedCards = [...cards];
@@ -159,33 +186,34 @@ export function ChallengeMode({ onBackToLobby }: ChallengeModeProps) {
           setFlippedCards([]);
 
           setScore(score + 50);
-          updateChallenge(1, 1); // Actualizar desafío de pares
+          updateChallenge(1, 1);
 
-          // Verificar si el juego terminó
           if (updatedCards.every(card => card.isMatched)) {
             setGameOver(true);
-            updateChallenge(2, 0); // Verificar desafío de movimientos
-            updateChallenge(3, 0); // Verificar desafío de fallos
+            soundSystem.playVictoryFanfare();
+            updateChallenge(2, 0);
+            updateChallenge(3, 0);
           }
-        }, 500);
+        }, 400);
       } else {
-        // No hay match
-        // Sonido de error
-        const errorSound = new Audio('https://actions.google.com/sounds/v1/cartoon/slide_whistle_down.ogg');
-        errorSound.volume = 0.3;
-        errorSound.play().catch(() => {});
-        
-        setFailures(failures + 1);
+        soundSystem.playComboBreak();
+        if (shieldActive) {
+          setShieldActive(false); // Shield consumed
+        } else {
+          setFailures(failures + 1);
+        }
+
         setTimeout(() => {
           const updatedCards = [...cards];
           updatedCards[firstIndex].isFlipped = false;
           updatedCards[secondIndex].isFlipped = false;
           setCards(updatedCards);
           setFlippedCards([]);
-        }, 1000);
+        }, 900);
       }
     }
   };
+
 
   const handleRestart = () => {
     setScore(0);

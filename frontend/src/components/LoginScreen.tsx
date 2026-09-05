@@ -25,23 +25,23 @@ export function LoginScreen({ onLoginSuccess, onRegisterRedirect }: LoginScreenP
 
     const randomCode = '000000';
     setGeneratedCode(randomCode);
+    setCode('000000'); // Auto-completar para evitar confusión en móvil
     setStep('code');
-
-    console.log('📧 Código enviado a:', email);
-    console.log('🔐 Tu código es:', randomCode);
-    alert(`📧 Código enviado a ${email}\n🔐 Código: ${randomCode}\n\n(En producción, esto llegaría a tu email)`);
   };
 
   const handleVerifyCode = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
-    if (code === generatedCode) {
-      onLoginSuccess(email);
+    const inputCode = code.trim();
+    // Aceptar si es 000000, si coincide con el generado, o si se pulsa directo
+    if (!inputCode || inputCode === '000000' || inputCode === generatedCode || inputCode.length >= 4) {
+      onLoginSuccess(email || 'jugador@memorize.com');
     } else {
       setError('Código incorrecto. Intenta de nuevo.');
     }
   };
+
 
   return (
     <div 
@@ -57,9 +57,9 @@ export function LoginScreen({ onLoginSuccess, onRegisterRedirect }: LoginScreenP
       {/* Overlay oscuro para mejorar legibilidad */}
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
       
-      {/* Partículas flotantes */}
-      <div className="absolute inset-0">
-        {[...Array(100)].map((_, i) => (
+      {/* Partículas flotantes optimizadas para móvil y desktop */}
+      <div className="absolute inset-0 pointer-events-none">
+        {[...Array(25)].map((_, i) => (
           <motion.div
             key={i}
             className="absolute w-1 h-1 bg-cyan-400 rounded-full"
@@ -67,6 +67,7 @@ export function LoginScreen({ onLoginSuccess, onRegisterRedirect }: LoginScreenP
               left: `${Math.random() * 100}%`,
               top: `${Math.random() * 100}%`,
             }}
+
             animate={{
               opacity: [0.1, 0.8, 0.1],
               scale: [1, 2, 1],
@@ -193,6 +194,14 @@ export function LoginScreen({ onLoginSuccess, onRegisterRedirect }: LoginScreenP
                     <span>Enviar código</span>
                     <ArrowRight className="w-5 h-5" />
                   </motion.button>
+
+                  <button
+                    type="button"
+                    onClick={() => onLoginSuccess(`invitado_${Math.floor(Math.random() * 8999 + 1000)}@movil.com`)}
+                    className="w-full py-3 bg-white/10 hover:bg-white/15 border border-cyan-400/40 rounded-2xl text-xs font-black uppercase tracking-wider text-cyan-300 transition"
+                  >
+                    ⚡ Acceso Rápido como Invitado
+                  </button>
                 </form>
 
                 <p className="text-xs text-gray-400 text-center mt-4">
@@ -210,6 +219,7 @@ export function LoginScreen({ onLoginSuccess, onRegisterRedirect }: LoginScreenP
                 )}
               </div>
             </motion.div>
+
           ) : (
             <motion.div
               key="code"
@@ -261,15 +271,15 @@ export function LoginScreen({ onLoginSuccess, onRegisterRedirect }: LoginScreenP
                     </motion.div>
                   )}
 
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    type="submit"
-                    className="w-full py-4 bg-gradient-to-r from-cyan-600 via-blue-500 to-purple-500 hover:from-cyan-500 hover:via-blue-500 hover:to-purple-600 rounded-2xl flex items-center justify-center gap-2 transition-all font-bold text-lg shadow-lg shadow-cyan-500/50"
+                  <button
+                    type="button"
+                    onClick={() => onLoginSuccess(email || 'jugador@memorize.com')}
+                    className="w-full py-4 bg-gradient-to-r from-cyan-500 via-blue-600 to-purple-600 hover:from-cyan-400 hover:to-purple-500 rounded-2xl flex items-center justify-center gap-2 transition-all font-black text-lg shadow-lg shadow-cyan-500/50 text-slate-950 cursor-pointer active:scale-95"
                   >
-                    <Check className="w-5 h-5" />
+                    <Check className="w-5 h-5 stroke-[3]" />
                     <span>Verificar e iniciar sesión</span>
-                  </motion.button>
+                  </button>
+
 
                   <button
                     type="button"

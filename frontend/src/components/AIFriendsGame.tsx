@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Users, Bot, Trophy, Zap, Brain } from 'lucide-react';
+import { MemoryCard } from './MemoryCard';
+import { getEquippedPackCards } from '../lib/shopSystem';
+
 
 interface Card {
   id: number;
@@ -131,11 +134,14 @@ export function AIFriendsGame({ onBackToLobby }: AIFriendsGameProps) {
     let gameCards: Card[] = [];
 
     if (gameMode === 'classic') {
-      const selectedEmojis = GAME_MODES.classic.emojis.slice(0, cardCount);
+      const equipped = getEquippedPackCards();
+      const sourceEmojis = equipped && equipped.length >= cardCount ? equipped : GAME_MODES.classic.emojis;
+      const selectedEmojis = sourceEmojis.slice(0, cardCount);
       gameCards = [...selectedEmojis, ...selectedEmojis]
         .sort(() => Math.random() - 0.5)
         .map((value, index) => ({ id: index, value, isFlipped: false, isMatched: false }));
     } else if (gameMode === 'connections') {
+
       GAME_MODES.connections.pairs.slice(0, cardCount).forEach((pair) => {
         pair.symbols.forEach((symbol) => {
           gameCards.push({
@@ -565,41 +571,29 @@ export function AIFriendsGame({ onBackToLobby }: AIFriendsGameProps) {
       </AnimatePresence>
 
       {/* Game Board */}
-      <div className="flex justify-center mb-8 relative z-10">
+      <div className="flex justify-center mb-8 relative z-10 w-full max-w-3xl mx-auto">
         <div
-          className={`grid gap-2 ${
-            cards.length <= 16 ? 'grid-cols-4' : 'grid-cols-6'
+          className={`grid gap-3 sm:gap-4 w-full ${
+            cards.length <= 16 ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3 sm:grid-cols-6'
           }`}
         >
           {cards.map((card, index) => (
-            <motion.div
+            <MemoryCard
               key={card.id}
-              className={`w-24 h-24 rounded-xl cursor-pointer ${
-                card.isMatched
-                  ? 'bg-green-500/20 border-2 border-green-400'
-                  : card.isFlipped
-                  ? 'bg-gradient-to-br from-cyan-500/30 to-purple-500/30 border-2 border-cyan-400'
-                  : 'bg-gray-800/50 border-2 border-gray-700 hover:border-gray-600'
-              } flex items-center justify-center text-4xl transition-all`}
+              card={{
+                id: card.id,
+                symbol: card.value,
+                isFlipped: card.isFlipped,
+                isMatched: card.isMatched,
+              }}
+              index={index}
+              glowColor="#a855f7"
               onClick={() => handleCardClick(index)}
-              whileHover={
-                !card.isFlipped && !card.isMatched && !players[currentPlayerIndex].isAI && gamePhase === 'playing'
-                  ? { scale: 1.05 }
-                  : {}
-              }
-              whileTap={
-                !card.isFlipped && !card.isMatched && !players[currentPlayerIndex].isAI && gamePhase === 'playing'
-                  ? { scale: 0.95 }
-                  : {}
-              }
-              animate={card.isFlipped || card.isMatched ? { rotateY: 180 } : { rotateY: 0 }}
-              transition={{ duration: 0.3 }}
-            >
-              {card.isFlipped || card.isMatched ? card.value : '?'}
-            </motion.div>
+            />
           ))}
         </div>
       </div>
+
 
       {/* Game Over Modal */}
       <AnimatePresence>

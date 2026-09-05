@@ -65,8 +65,8 @@ export function RegisterScreen({ onLoginRedirect, onRegisterSuccess }: RegisterS
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
       
       {/* Partículas flotantes */}
-      <div className="absolute inset-0">
-        {[...Array(100)].map((_, i) => (
+      <div className="absolute inset-0 pointer-events-none">
+        {[...Array(25)].map((_, i) => (
           <motion.div
             key={i}
             className="absolute w-1 h-1 bg-purple-400 rounded-full"
@@ -74,6 +74,7 @@ export function RegisterScreen({ onLoginRedirect, onRegisterSuccess }: RegisterS
               left: `${Math.random() * 100}%`,
               top: `${Math.random() * 100}%`,
             }}
+
             animate={{
               opacity: [0.1, 0.8, 0.1],
               scale: [1, 2, 1],

@@ -1,1102 +1,751 @@
-import { motion } from 'framer-motion';
-import { ArrowLeft, ShoppingCart, Sparkles, Lock, Check, Frame, Palette, LayoutGrid, Star } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  ArrowLeft, ShoppingBag, Sparkles, Lock, Check, CheckCircle2, Star, Zap, Gift, Flame, Box, Shield, Crown, RefreshCw, X, Coins, Gem
+} from 'lucide-react';
+import { soundSystem } from '../lib/soundSystem';
+import { getEquippedItems, type SkinDetails } from '../lib/shopSystem';
 
 interface TiendaScreenProps {
   onBack: () => void;
   userId?: string;
 }
 
-type ShopCategory = 'cards' | 'frames' | 'skins' | 'boards';
+type ShopTab = 'offers' | 'skins' | 'frames' | 'bank';
 
-interface CardPack {
+interface ShopItem {
   id: string;
   name: string;
-  description: string;
-  cards: string[];
+  desc: string;
   price: number;
   currency: 'coins' | 'gems';
-  unlocked: boolean;
-  owned: boolean;
-  gradient: string;
+  icon: string;
   rarity: 'common' | 'rare' | 'epic' | 'legendary';
+  gradient: string;
+  tag?: string;
+  category: 'skin' | 'frame' | 'chest';
 }
 
-interface ProfileFrame {
-  id: string;
-  name: string;
-  description: string;
-  preview: string;
-  price: number;
-  currency: 'coins' | 'gems';
-  unlocked: boolean;
-  owned: boolean;
-  gradient: string;
-  borderStyle: string;
-  rarity: 'common' | 'rare' | 'epic' | 'legendary';
-}
-
-interface CardSkin {
-  id: string;
-  name: string;
-  description: string;
-  preview: string;
-  price: number;
-  currency: 'coins' | 'gems';
-  unlocked: boolean;
-  owned: boolean;
-  gradient: string;
-  pattern: string;
-  rarity: 'common' | 'rare' | 'epic' | 'legendary';
-}
-
-interface BoardTheme {
-  id: string;
-  name: string;
-  description: string;
-  preview: string;
-  price: number;
-  currency: 'coins' | 'gems';
-  unlocked: boolean;
-  owned: boolean;
-  gradient: string;
-  bgColor: string;
-  rarity: 'common' | 'rare' | 'epic' | 'legendary';
-}
-
-const CARD_PACKS: CardPack[] = [
-  {
-    id: 'frutas',
-    name: 'Pack Frutas',
-    description: 'Frutas clásicas y deliciosas',
-    cards: ['🍎', '🍌', '🍇', '🍉', '🍓', '🍒', '🍑', '🍍'],
-    price: 0,
-    currency: 'coins',
-    unlocked: true,
-    owned: true,
-    gradient: 'from-red-500 to-orange-500',
-    rarity: 'common',
-  },
-  {
-    id: 'animales',
-    name: 'Pack Animales',
-    description: 'Criaturas adorables del reino animal',
-    cards: ['🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼'],
-    price: 500,
-    currency: 'coins',
-    unlocked: true,
-    owned: false,
-    gradient: 'from-green-500 to-emerald-500',
-    rarity: 'common',
-  },
-  {
-    id: 'espacio',
-    name: 'Pack Espacial',
-    description: 'Explora el cosmos infinito',
-    cards: ['🌍', '🌙', '⭐', '🌟', '🚀', '🛸', '🌌', '☄️'],
-    price: 1000,
-    currency: 'coins',
-    unlocked: true,
-    owned: false,
-    gradient: 'from-blue-500 to-purple-500',
-    rarity: 'rare',
-  },
-  {
-    id: 'oceano',
-    name: 'Pack Océano',
-    description: 'Criaturas de las profundidades',
-    cards: ['🐠', '🐟', '🐡', '🦈', '🐙', '🦑', '🐚', '🦀'],
-    price: 1500,
-    currency: 'coins',
-    unlocked: true,
-    owned: false,
-    gradient: 'from-cyan-500 to-blue-600',
-    rarity: 'rare',
-  },
-  {
-    id: 'magico',
-    name: 'Pack Mágico',
-    description: 'Elementos místicos y encantados',
-    cards: ['🔮', '✨', '🌟', '💫', '🪄', '🎭', '👑', '💎'],
-    price: 2500,
-    currency: 'coins',
-    unlocked: true,
-    owned: false,
-    gradient: 'from-purple-500 to-pink-500',
-    rarity: 'epic',
-  },
-  {
-    id: 'dragon',
-    name: 'Pack Dragón',
-    description: 'Poder legendario de dragones',
-    cards: ['🐉', '🔥', '⚡', '💥', '🌋', '👹', '🗡️', '🛡️'],
-    price: 100,
-    currency: 'gems',
-    unlocked: true,
-    owned: false,
-    gradient: 'from-red-600 to-orange-600',
-    rarity: 'legendary',
-  },
+const CARD_SKINS: ShopItem[] = [
   {
     id: 'cyber',
-    name: 'Pack Cyber',
-    description: 'Tecnología del futuro',
-    cards: ['🤖', '💻', '📱', '⚙️', '🔧', '💾', '🖥️', '⌨️'],
-    price: 3000,
-    currency: 'coins',
-    unlocked: false,
-    owned: false,
-    gradient: 'from-cyan-400 to-blue-500',
-    rarity: 'epic',
-  },
-  {
-    id: 'celestial',
-    name: 'Pack Celestial',
-    description: 'Poder divino de los cielos',
-    cards: ['☀️', '🌙', '⭐', '✨', '☁️', '🌈', '⚡', '🌟'],
-    price: 150,
-    currency: 'gems',
-    unlocked: false,
-    owned: false,
-    gradient: 'from-yellow-400 to-orange-500',
-    rarity: 'legendary',
-  },
-];
-
-const PROFILE_FRAMES: ProfileFrame[] = [
-  {
-    id: 'basic',
-    name: 'Marco Básico',
-    description: 'Marco simple y elegante',
-    preview: '⬜',
-    price: 0,
-    currency: 'coins',
-    unlocked: true,
-    owned: true,
-    gradient: 'from-gray-500 to-gray-600',
-    borderStyle: 'border-4 border-gray-500',
-    rarity: 'common',
-  },
-  {
-    id: 'gold',
-    name: 'Marco Dorado',
-    description: 'Brilla con elegancia',
-    preview: '🟨',
-    price: 1000,
-    currency: 'coins',
-    unlocked: true,
-    owned: false,
-    gradient: 'from-yellow-400 to-yellow-600',
-    borderStyle: 'border-4 border-yellow-500',
-    rarity: 'rare',
-  },
-  {
-    id: 'diamond',
-    name: 'Marco Diamante',
-    description: 'Lujo y prestigio',
-    preview: '💎',
-    price: 200,
-    currency: 'gems',
-    unlocked: true,
-    owned: false,
-    gradient: 'from-cyan-400 to-blue-500',
-    borderStyle: 'border-4 border-cyan-400',
-    rarity: 'epic',
-  },
-  {
-    id: 'fire',
-    name: 'Marco de Fuego',
-    description: 'Ardiente y poderoso',
-    preview: '🔥',
-    price: 2500,
-    currency: 'coins',
-    unlocked: true,
-    owned: false,
-    gradient: 'from-red-500 to-orange-600',
-    borderStyle: 'border-4 border-red-500',
-    rarity: 'epic',
-  },
-  {
-    id: 'cosmic',
-    name: 'Marco Cósmico',
-    description: 'Del espacio infinito',
-    preview: '🌌',
-    price: 300,
-    currency: 'gems',
-    unlocked: true,
-    owned: false,
-    gradient: 'from-purple-600 to-pink-600',
-    borderStyle: 'border-4 border-purple-500',
-    rarity: 'legendary',
-  },
-  {
-    id: 'rainbow',
-    name: 'Marco Arcoíris',
-    description: 'Todos los colores',
-    preview: '🌈',
-    price: 3500,
-    currency: 'coins',
-    unlocked: false,
-    owned: false,
-    gradient: 'from-red-400 via-yellow-400 to-blue-400',
-    borderStyle: 'border-4 border-pink-500',
-    rarity: 'legendary',
-  },
-];
-
-const CARD_SKINS: CardSkin[] = [
-  {
-    id: 'classic',
-    name: 'Skin Clásico',
-    description: 'El diseño original',
-    preview: '🎴',
-    price: 0,
-    currency: 'coins',
-    unlocked: true,
-    owned: true,
-    gradient: 'from-blue-500 to-purple-500',
-    pattern: 'bg-gradient-to-br from-blue-500 to-purple-500',
-    rarity: 'common',
-  },
-  {
-    id: 'neon',
-    name: 'Skin Neón',
-    description: 'Brillo futurista',
-    preview: '✨',
+    name: 'Cyber Neón 2077',
+    desc: 'Bordes luminosos cian y núcleo cuántico hiperreactivo.',
     price: 800,
     currency: 'coins',
-    unlocked: true,
-    owned: false,
-    gradient: 'from-cyan-400 to-pink-500',
-    pattern: 'bg-gradient-to-br from-cyan-400 to-pink-500',
+    icon: '⚡',
     rarity: 'rare',
-  },
-  {
-    id: 'gold',
-    name: 'Skin Dorado',
-    description: 'Lujo y elegancia',
-    preview: '👑',
-    price: 1500,
-    currency: 'coins',
-    unlocked: true,
-    owned: false,
-    gradient: 'from-yellow-400 to-orange-500',
-    pattern: 'bg-gradient-to-br from-yellow-400 to-orange-500',
-    rarity: 'epic',
-  },
-  {
-    id: 'ice',
-    name: 'Skin Hielo',
-    description: 'Frío cristalino',
-    preview: '❄️',
-    price: 150,
-    currency: 'gems',
-    unlocked: true,
-    owned: false,
-    gradient: 'from-cyan-300 to-blue-400',
-    pattern: 'bg-gradient-to-br from-cyan-300 to-blue-400',
-    rarity: 'epic',
+    gradient: 'from-cyan-500 via-blue-600 to-indigo-800',
+    category: 'skin',
   },
   {
     id: 'shadow',
-    name: 'Skin Sombra',
-    description: 'Oscuridad misteriosa',
-    preview: '🌑',
-    price: 2000,
+    name: 'Obsidiana Sigilosa',
+    desc: 'Fibra de carbono con grabados carmesí de lava negra.',
+    price: 1500,
     currency: 'coins',
-    unlocked: false,
-    owned: false,
-    gradient: 'from-gray-800 to-black',
-    pattern: 'bg-gradient-to-br from-gray-800 to-black',
-    rarity: 'legendary',
+    icon: '⚔️',
+    rarity: 'epic',
+    gradient: 'from-zinc-900 via-red-950 to-black',
+    category: 'skin',
   },
   {
     id: 'galaxy',
-    name: 'Skin Galaxia',
-    description: 'Universo infinito',
-    preview: '🌠',
-    price: 250,
+    name: 'Nebulosa Cósmica',
+    desc: 'Tejido del universo profundo con polvo estelar brillante.',
+    price: 60,
     currency: 'gems',
-    unlocked: false,
-    owned: false,
-    gradient: 'from-purple-900 via-blue-800 to-pink-900',
-    pattern: 'bg-gradient-to-br from-purple-900 via-blue-800 to-pink-900',
+    icon: '🌌',
     rarity: 'legendary',
+    gradient: 'from-purple-600 via-fuchsia-600 to-pink-600',
+    tag: 'POPULAR ⭐',
+    category: 'skin',
+  },
+  {
+    id: 'dragon',
+    name: 'Escama de Dragón',
+    desc: 'Forjada en el corazón volcánico de un dragón ancestral.',
+    price: 2400,
+    currency: 'coins',
+    icon: '🐉',
+    rarity: 'epic',
+    gradient: 'from-orange-500 via-red-600 to-amber-700',
+    category: 'skin',
+  },
+  {
+    id: 'celestial',
+    name: 'Luz Celestial',
+    desc: 'Mármol sagrado con filigrana dorada y gemas solares.',
+    price: 100,
+    currency: 'gems',
+    icon: '🕊️',
+    rarity: 'legendary',
+    gradient: 'from-yellow-300 via-amber-400 to-cyan-400',
+    tag: 'MÍTICO 👑',
+    category: 'skin',
   },
 ];
 
-const BOARD_THEMES: BoardTheme[] = [
+const PROFILE_FRAMES: ShopItem[] = [
   {
-    id: 'default',
-    name: 'Tablero Clásico',
-    description: 'El tablero original',
-    preview: '🎮',
-    price: 0,
+    id: 'neon_ring',
+    name: 'Aura Cuántica',
+    desc: 'Anillo de energía rotatoria para tu avatar.',
+    price: 600,
     currency: 'coins',
-    unlocked: true,
-    owned: true,
-    gradient: 'from-gray-700 to-gray-800',
-    bgColor: 'bg-gray-900',
-    rarity: 'common',
-  },
-  {
-    id: 'forest',
-    name: 'Bosque Místico',
-    description: 'Naturaleza encantada',
-    preview: '🌲',
-    price: 1200,
-    currency: 'coins',
-    unlocked: true,
-    owned: false,
-    gradient: 'from-green-600 to-emerald-700',
-    bgColor: 'bg-green-900',
+    icon: '💫',
     rarity: 'rare',
+    gradient: 'from-cyan-400 to-blue-500',
+    category: 'frame',
   },
   {
-    id: 'ocean',
-    name: 'Océano Profundo',
-    description: 'Bajo el mar',
-    preview: '🌊',
-    price: 1500,
-    currency: 'coins',
-    unlocked: true,
-    owned: false,
-    gradient: 'from-blue-600 to-cyan-700',
-    bgColor: 'bg-blue-900',
-    rarity: 'rare',
-  },
-  {
-    id: 'volcano',
-    name: 'Volcán Ardiente',
-    description: 'Lava y fuego',
-    preview: '🌋',
-    price: 2000,
-    currency: 'coins',
-    unlocked: true,
-    owned: false,
-    gradient: 'from-red-600 to-orange-700',
-    bgColor: 'bg-red-900',
-    rarity: 'epic',
-  },
-  {
-    id: 'space',
-    name: 'Espacio Exterior',
-    description: 'Entre las estrellas',
-    preview: '🚀',
-    price: 180,
+    id: 'phoenix',
+    name: 'Fénix Ardiente',
+    desc: 'Llamas míticas doradas que rodean tu rango.',
+    price: 45,
     currency: 'gems',
-    unlocked: true,
-    owned: false,
-    gradient: 'from-purple-800 to-indigo-900',
-    bgColor: 'bg-black',
-    rarity: 'epic',
+    icon: '🔥',
+    rarity: 'legendary',
+    gradient: 'from-orange-500 to-red-600',
+    tag: 'ÉPICO',
+    category: 'frame',
   },
   {
-    id: 'heaven',
-    name: 'Cielo Celestial',
-    description: 'Reino divino',
-    preview: '☁️',
-    price: 3000,
-    currency: 'coins',
-    unlocked: false,
-    owned: false,
-    gradient: 'from-yellow-300 to-orange-400',
-    bgColor: 'bg-sky-400',
+    id: 'crown_gold',
+    name: 'Corona Real Dorada',
+    desc: 'Marco imperial con diamantes y laureles.',
+    price: 80,
+    currency: 'gems',
+    icon: '👑',
     rarity: 'legendary',
+    gradient: 'from-yellow-400 to-amber-500',
+    category: 'frame',
   },
 ];
-
-const RARITY_COLORS = {
-  common: 'border-gray-500',
-  rare: 'border-blue-500',
-  epic: 'border-purple-500',
-  legendary: 'border-yellow-500',
-};
 
 export function TiendaScreen({ onBack, userId }: TiendaScreenProps) {
   const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:5175';
-  const [selectedCategory, setSelectedCategory] = useState<ShopCategory>('cards');
-  const [selectedPack, setSelectedPack] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<ShopTab>('offers');
   
-  // Load from localStorage
-  const [ownedPacks, setOwnedPacks] = useState<string[]>(() => {
-    const saved = localStorage.getItem('ownedPacks');
-    return saved ? JSON.parse(saved) : ['frutas'];
-  });
-  const [ownedFrames, setOwnedFrames] = useState<string[]>(() => {
-    const saved = localStorage.getItem('ownedFrames');
-    return saved ? JSON.parse(saved) : ['basic'];
-  });
-  const [ownedSkins, setOwnedSkins] = useState<string[]>(() => {
-    const saved = localStorage.getItem('ownedSkins');
-    return saved ? JSON.parse(saved) : ['classic'];
-  });
-  const [ownedBoards, setOwnedBoards] = useState<string[]>(() => {
-    const saved = localStorage.getItem('ownedBoards');
-    return saved ? JSON.parse(saved) : ['default'];
-  });
-  
-  // Equipped items
-  const [equippedPack, setEquippedPack] = useState<string>(() => {
-    return localStorage.getItem('equippedPack') || 'frutas';
-  });
-  const [equippedFrame, setEquippedFrame] = useState<string>(() => {
-    return localStorage.getItem('equippedFrame') || 'basic';
-  });
-  const [equippedSkin, setEquippedSkin] = useState<string>(() => {
-    return localStorage.getItem('equippedSkin') || 'classic';
-  });
-  const [equippedBoard, setEquippedBoard] = useState<string>(() => {
-    return localStorage.getItem('equippedBoard') || 'default';
-  });
-  
-  const [coins, setCoins] = useState(0);
-  const [gems, setGems] = useState(0);
+  const [coins, setCoins] = useState(1500);
+  const [gems, setGems] = useState(80);
 
-  // Cargar monedas del usuario
+  const [ownedSkins, setOwnedSkins] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('ownedSkins');
+      return saved ? JSON.parse(saved) : ['classic'];
+    } catch { return ['classic']; }
+  });
+
+  const [ownedFrames, setOwnedFrames] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('ownedFrames');
+      return saved ? JSON.parse(saved) : ['basic'];
+    } catch { return ['basic']; }
+  });
+
+  const [equippedSkin, setEquippedSkin] = useState<string>(() => localStorage.getItem('equippedSkin') || 'classic');
+  const [equippedFrame, setEquippedFrame] = useState<string>(() => localStorage.getItem('equippedFrame') || 'basic');
+
+  // Modal de Desbloqueo / Compra Exitosa
+  const [purchaseModalItem, setPurchaseModalItem] = useState<{ item: ShopItem; action: 'buy' | 'equip' } | null>(null);
+
+  // Modal de Apertura de Cofre
+  const [openingChest, setOpeningChest] = useState<{ name: string; type: 'neon' | 'mythic'; cost: number; currency: 'coins' | 'gems' } | null>(null);
+  const [chestReward, setChestReward] = useState<{ coins: number; gems: number; skinName?: string } | null>(null);
+  const [isChestOpening, setIsChestOpening] = useState(false);
+
+  // Error toast
+  const [errorToast, setErrorToast] = useState<string | null>(null);
+
   useEffect(() => {
     if (userId) {
       fetch(`${API_BASE}/api/users/${userId}`)
         .then(res => res.json())
         .then(data => {
-          setCoins(data.coins || 0);
-          setGems(data.gems || 0);
+          if (data.coins !== undefined) setCoins(data.coins);
+          if (data.gems !== undefined) setGems(data.gems);
         })
-        .catch(err => console.error('Error loading currency:', err));
+        .catch(() => {});
     }
   }, [userId]);
 
-  const handleBuyPack = (pack: CardPack) => {
-    if (pack.owned || ownedPacks.includes(pack.id)) {
-      alert('¡Ya tienes este pack!');
+  const showToast = (msg: string) => {
+    setErrorToast(msg);
+    setTimeout(() => setErrorToast(null), 3000);
+  };
+
+  const handleBuyOrEquipItem = (item: ShopItem) => {
+    const isSkin = item.category === 'skin';
+    const isOwned = isSkin ? ownedSkins.includes(item.id) : ownedFrames.includes(item.id);
+    const isEquipped = isSkin ? equippedSkin === item.id : equippedFrame === item.id;
+
+    if (isEquipped) return;
+
+    if (isOwned) {
+      // Equipar
+      if (isSkin) {
+        setEquippedSkin(item.id);
+        localStorage.setItem('equippedSkin', item.id);
+      } else {
+        setEquippedFrame(item.id);
+        localStorage.setItem('equippedFrame', item.id);
+      }
+      soundSystem.playLevelUp();
+      setPurchaseModalItem({ item, action: 'equip' });
       return;
     }
 
-    if (!pack.unlocked) {
-      alert('Este pack aún no está disponible');
-      return;
-    }
-
-    const hasEnough = pack.currency === 'coins' ? coins >= pack.price : gems >= pack.price;
-    
+    // Comprar
+    const hasEnough = item.currency === 'coins' ? coins >= item.price : gems >= item.price;
     if (!hasEnough) {
-      alert(`No tienes suficientes ${pack.currency === 'coins' ? 'monedas' : 'gemas'}`);
+      showToast(`⚠️ No tienes suficientes ${item.currency === 'coins' ? 'Monedas 🪙' : 'Gemas 💎'}`);
+      soundSystem.playComboBreak();
       return;
     }
 
-    // Simular compra
-    const newOwned = [...ownedPacks, pack.id];
-    setOwnedPacks(newOwned);
-    localStorage.setItem('ownedPacks', JSON.stringify(newOwned));
-    alert(`¡Has comprado ${pack.name}!`);
+    // Deduct
+    if (item.currency === 'coins') setCoins(prev => prev - item.price);
+    else setGems(prev => prev - item.price);
+
+    if (isSkin) {
+      const newSkins = [...ownedSkins, item.id];
+      setOwnedSkins(newSkins);
+      setEquippedSkin(item.id);
+      localStorage.setItem('ownedSkins', JSON.stringify(newSkins));
+      localStorage.setItem('equippedSkin', item.id);
+    } else {
+      const newFrames = [...ownedFrames, item.id];
+      setOwnedFrames(newFrames);
+      setEquippedFrame(item.id);
+      localStorage.setItem('ownedFrames', JSON.stringify(newFrames));
+      localStorage.setItem('equippedFrame', item.id);
+    }
+
+    soundSystem.playVictoryFanfare();
+    setPurchaseModalItem({ item, action: 'buy' });
   };
 
-  const handleEquipPack = (packId: string) => {
-    setEquippedPack(packId);
-    localStorage.setItem('equippedPack', packId);
-    alert('¡Pack equipado! Se usará en tus próximas partidas.');
-  };
+  // Abrir Cofre Misterioso
+  const handleOpenChest = (type: 'neon' | 'mythic') => {
+    const cost = type === 'neon' ? 500 : 70;
+    const currency = type === 'neon' ? 'coins' : 'gems';
 
-  const handleBuyFrame = (frame: ProfileFrame) => {
-    if (frame.owned || ownedFrames.includes(frame.id)) {
-      alert('¡Ya tienes este marco!');
-      return;
-    }
-
-    if (!frame.unlocked) {
-      alert('Este marco aún no está disponible');
-      return;
-    }
-
-    const hasEnough = frame.currency === 'coins' ? coins >= frame.price : gems >= frame.price;
-    
+    const hasEnough = currency === 'coins' ? coins >= cost : gems >= cost;
     if (!hasEnough) {
-      alert(`No tienes suficientes ${frame.currency === 'coins' ? 'monedas' : 'gemas'}`);
+      showToast(`⚠️ Requiere ${cost} ${currency === 'coins' ? 'Monedas 🪙' : 'Gemas 💎'}`);
+      soundSystem.playComboBreak();
       return;
     }
 
-    const newOwned = [...ownedFrames, frame.id];
-    setOwnedFrames(newOwned);
-    localStorage.setItem('ownedFrames', JSON.stringify(newOwned));
-    alert(`¡Has comprado ${frame.name}!`);
+    if (currency === 'coins') setCoins(prev => prev - cost);
+    else setGems(prev => prev - cost);
+
+    setOpeningChest({
+      name: type === 'neon' ? 'Cofre Neón Cuántico' : 'Cofre Mítico Imperial',
+      type,
+      cost,
+      currency,
+    });
+    setIsChestOpening(true);
+    setChestReward(null);
+
+    soundSystem.playCardFlip();
+
+    // Animación de apertura de cofre
+    setTimeout(() => {
+      setIsChestOpening(false);
+      const earnedCoins = type === 'neon' ? Math.floor(Math.random() * 400 + 200) : Math.floor(Math.random() * 2000 + 1000);
+      const earnedGems = type === 'neon' ? Math.floor(Math.random() * 10 + 5) : Math.floor(Math.random() * 35 + 15);
+      
+      setCoins(prev => prev + earnedCoins);
+      setGems(prev => prev + earnedGems);
+
+      setChestReward({
+        coins: earnedCoins,
+        gems: earnedGems,
+        skinName: type === 'mythic' ? 'Nebulosa Cósmica 🌌' : undefined,
+      });
+
+      soundSystem.playLevelUp();
+    }, 1800);
   };
 
-  const handleEquipFrame = (frameId: string) => {
-    setEquippedFrame(frameId);
-    localStorage.setItem('equippedFrame', frameId);
-    alert('¡Marco equipado! Se mostrará en tu perfil.');
-  };
-
-  const handleBuySkin = (skin: CardSkin) => {
-    if (skin.owned || ownedSkins.includes(skin.id)) {
-      alert('¡Ya tienes este skin!');
+  // Canje del Banco de Recursos
+  const handleBankExchange = (packCoins: number, gemCost: number) => {
+    if (gems < gemCost) {
+      showToast('⚠️ No tienes suficientes Gemas 💎 para este paquete.');
+      soundSystem.playComboBreak();
       return;
     }
-
-    if (!skin.unlocked) {
-      alert('Este skin aún no está disponible');
-      return;
-    }
-
-    const hasEnough = skin.currency === 'coins' ? coins >= skin.price : gems >= skin.price;
-    
-    if (!hasEnough) {
-      alert(`No tienes suficientes ${skin.currency === 'coins' ? 'monedas' : 'gemas'}`);
-      return;
-    }
-
-    const newOwned = [...ownedSkins, skin.id];
-    setOwnedSkins(newOwned);
-    localStorage.setItem('ownedSkins', JSON.stringify(newOwned));
-    alert(`¡Has comprado ${skin.name}!`);
-  };
-
-  const handleEquipSkin = (skinId: string) => {
-    setEquippedSkin(skinId);
-    localStorage.setItem('equippedSkin', skinId);
-    alert('¡Skin equipado! Tus cartas tendrán este diseño.');
-  };
-
-  const handleBuyBoard = (board: BoardTheme) => {
-    if (board.owned || ownedBoards.includes(board.id)) {
-      alert('¡Ya tienes este tablero!');
-      return;
-    }
-
-    if (!board.unlocked) {
-      alert('Este tablero aún no está disponible');
-      return;
-    }
-
-    const hasEnough = board.currency === 'coins' ? coins >= board.price : gems >= board.price;
-    
-    if (!hasEnough) {
-      alert(`No tienes suficientes ${board.currency === 'coins' ? 'monedas' : 'gemas'}`);
-      return;
-    }
-
-    const newOwned = [...ownedBoards, board.id];
-    setOwnedBoards(newOwned);
-    localStorage.setItem('ownedBoards', JSON.stringify(newOwned));
-    alert(`¡Has comprado ${board.name}!`);
-  };
-
-  const handleEquipBoard = (boardId: string) => {
-    setEquippedBoard(boardId);
-    localStorage.setItem('equippedBoard', boardId);
-    alert('¡Tablero equipado! Se usará en tus partidas.');
+    setGems(prev => prev - gemCost);
+    setCoins(prev => prev + packCoins);
+    soundSystem.playVictoryFanfare();
   };
 
   return (
     <div 
-      className="min-h-screen text-white p-8 relative overflow-hidden"
+      className="font-rajdhani min-h-screen text-white p-3 sm:p-6 flex flex-col relative overflow-y-auto select-none pb-28"
       style={{
         backgroundImage: "url('/fonlobby.png')",
         backgroundSize: "cover",
-        backgroundPosition: "center",
+        backgroundPosition: "center top",
         backgroundRepeat: "no-repeat",
+        backgroundAttachment: "fixed",
       }}
     >
-      {/* Dark overlay */}
-      <div className="absolute inset-0 bg-black/70"></div>
+      <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-xl pointer-events-none" />
 
-      {/* Header */}
-      <div className="relative z-10 flex justify-between items-center mb-8">
+      {/* ERROR TOAST */}
+      <AnimatePresence>
+        {errorToast && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-red-950/95 border-2 border-red-500 text-white px-5 py-2.5 rounded-2xl shadow-[0_0_30px_rgba(239,68,68,0.5)] font-bold text-xs flex items-center gap-2"
+          >
+            <span>{errorToast}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* HEADER COMPACTO CON WALLET */}
+      <header className="relative z-10 max-w-4xl w-full mx-auto flex items-center justify-between gap-3 mb-4">
         <button
           onClick={onBack}
-          className="flex items-center gap-2 px-4 py-2 bg-gray-800/50 hover:bg-gray-700/50 rounded-xl backdrop-blur-sm border border-gray-700 transition-colors"
+          className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-900/90 hover:bg-slate-800 border border-white/15 rounded-2xl transition text-xs font-bold shadow-md cursor-pointer"
         >
-          <ArrowLeft className="w-5 h-5" />
-          <span>Volver al Lobby</span>
+          <ArrowLeft className="w-4 h-4" />
+          <span>Lobby</span>
         </button>
-        <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent">
-          🛒 TIENDA DE CARTAS
+
+        <h1 className="text-xl sm:text-2xl font-black uppercase tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-pink-400 to-cyan-400">
+          TIENDA NEURAL
         </h1>
-        <div className="flex items-center gap-4">
-          <div className="px-4 py-2 bg-gray-800/50 rounded-xl backdrop-blur-sm border border-yellow-500/50">
-            <span className="text-yellow-400 font-bold">{coins.toLocaleString()} 💰</span>
+
+        {/* Live Wallet */}
+        <div className="flex items-center gap-1.5 text-xs font-bold font-mono">
+          <div className="flex items-center gap-1 px-3 py-1.5 bg-yellow-500/15 rounded-full border border-yellow-500/40 text-yellow-300 shadow-sm">
+            <span>💰</span>
+            <span>{coins.toLocaleString()}</span>
           </div>
-          <div className="px-4 py-2 bg-gray-800/50 rounded-xl backdrop-blur-sm border border-blue-500/50">
-            <span className="text-blue-400 font-bold">{gems.toLocaleString()} 💎</span>
+          <div className="flex items-center gap-1 px-3 py-1.5 bg-cyan-500/15 rounded-full border border-cyan-500/40 text-cyan-300 shadow-sm">
+            <span>💎</span>
+            <span>{gems.toLocaleString()}</span>
           </div>
         </div>
-      </div>
+      </header>
 
-      <div className="relative z-10 max-w-7xl mx-auto">
-        {/* Category Tabs */}
-        <div className="flex gap-4 mb-8 justify-center">
+      <main className="relative z-10 max-w-4xl w-full mx-auto space-y-4">
+
+        {/* 1. HERO BANNER: OFERTA DESTACADA DEL DÍA */}
+        <section className="bg-gradient-to-r from-purple-950/90 via-slate-900/95 to-indigo-950/90 border-2 border-yellow-500/40 rounded-3xl p-4 sm:p-6 shadow-[0_0_40px_rgba(234,179,8,0.2)] relative overflow-hidden backdrop-blur-2xl">
+          <div className="absolute top-0 right-0 w-80 h-80 bg-gradient-to-bl from-yellow-500/15 via-pink-600/15 to-transparent rounded-full blur-3xl pointer-events-none" />
+
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 relative z-10">
+            <div className="space-y-1.5 text-center sm:text-left">
+              <div className="flex items-center justify-center sm:justify-start gap-2">
+                <span className="px-2.5 py-0.5 rounded-full bg-yellow-500/20 text-yellow-300 border border-yellow-400/50 text-[10px] font-black uppercase tracking-wider flex items-center gap-1">
+                  <Flame className="w-3 h-3 text-yellow-400 animate-bounce" /> OFERTA DESTACADA • -40%
+                </span>
+                <span className="text-[10px] font-mono text-gray-400 bg-black/40 px-2 py-0.5 rounded-full">
+                  ⏰ Termina en 14h 22m
+                </span>
+              </div>
+
+              <h2 className="text-2xl sm:text-3xl font-black uppercase text-white tracking-wide">
+                PACK DRAGÓN VOLCÁNICO 🐉
+              </h2>
+              <p className="text-xs text-gray-300 max-w-md leading-relaxed">
+                Desbloquea el diseño de cartas con llamas incandescentes y el marco imperial de fuego ancestral.
+              </p>
+            </div>
+
+            <button
+              onClick={() => handleBuyOrEquipItem(CARD_SKINS[3])}
+              className="px-6 py-3.5 bg-gradient-to-r from-yellow-400 via-amber-300 to-yellow-500 hover:from-yellow-300 hover:to-amber-200 text-slate-950 font-black text-xs uppercase tracking-widest rounded-2xl shadow-[0_0_25px_rgba(234,179,8,0.5)] transition hover:scale-105 flex items-center gap-2 cursor-pointer flex-shrink-0"
+            >
+              <Sparkles className="w-4 h-4" />
+              <span>{ownedSkins.includes('dragon') ? 'EQUIPAR AHORA' : 'COMPRAR • 2,400 🪙'}</span>
+            </button>
+          </div>
+        </section>
+
+        {/* 2. PESTAÑAS DE CATEGORÍA DE TIENDA */}
+        <div className="flex bg-slate-950/80 p-1.5 rounded-2xl border border-white/10 overflow-x-auto scrollbar-none">
           {[
-            { id: 'cards', label: 'Packs de Cartas', icon: ShoppingCart },
-            { id: 'frames', label: 'Marcos de Perfil', icon: Frame },
-            { id: 'skins', label: 'Skins de Cartas', icon: Palette },
-            { id: 'boards', label: 'Marcos de Tablero', icon: LayoutGrid },
+            { id: 'offers', label: '📦 Cofres & Ofertas' },
+            { id: 'skins', label: '🎴 Skins de Cartas' },
+            { id: 'frames', label: '🖼️ Marcos de Avatar' },
+            { id: 'bank', label: '💎 Banco de Recursos' },
           ].map((tab) => (
             <button
               key={tab.id}
               onClick={() => {
-                setSelectedCategory(tab.id as ShopCategory);
-                setSelectedPack(null);
+                soundSystem.playCardFlip();
+                setActiveTab(tab.id as ShopTab);
               }}
-              className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all ${
-                selectedCategory === tab.id
-                  ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg scale-105'
-                  : 'bg-gray-800/50 text-gray-400 hover:text-white backdrop-blur-sm border border-gray-700'
+              className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all whitespace-nowrap cursor-pointer ${
+                activeTab === tab.id
+                  ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 shadow-[0_0_20px_rgba(0,255,255,0.4)]'
+                  : 'text-gray-400 hover:text-white'
               }`}
             >
-              <tab.icon className="w-5 h-5" />
               {tab.label}
             </button>
           ))}
         </div>
 
-        <p className="text-center text-gray-300 mb-8">
-          {selectedCategory === 'cards' && 'Desbloquea nuevos packs de cartas para personalizar tu experiencia de juego'}
-          {selectedCategory === 'frames' && 'Personaliza tu perfil con marcos únicos y elegantes'}
-          {selectedCategory === 'skins' && 'Cambia el aspecto de tus cartas con diseños increíbles'}
-          {selectedCategory === 'boards' && 'Transforma el tablero de juego con temas espectaculares'}
-        </p>
-
-        {/* CARDS CATEGORY */}
-        {selectedCategory === 'cards' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-            {CARD_PACKS.map((pack, index) => {
-              const isOwned = ownedPacks.includes(pack.id);
-              const isSelected = selectedPack === pack.id;
-
-              return (
-                <motion.div
-                  key={pack.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  onClick={() => setSelectedPack(pack.id)}
-                  className={`relative p-6 rounded-2xl backdrop-blur-xl border-2 cursor-pointer transition-all ${
-                    isSelected ? 'scale-105 shadow-2xl' : 'hover:scale-102'
-                  } ${
-                    isOwned ? 'bg-green-900/30 border-green-500' : 
-                    pack.unlocked ? `bg-gray-800/50 ${RARITY_COLORS[pack.rarity]}` : 
-                    'bg-gray-900/50 border-gray-700 opacity-60'
-                  }`}
-                >
-                  <div className={`absolute top-2 right-2 px-2 py-1 rounded-lg text-xs font-bold uppercase ${
-                    pack.rarity === 'legendary' ? 'bg-yellow-500 text-black' :
-                    pack.rarity === 'epic' ? 'bg-purple-500 text-white' :
-                    pack.rarity === 'rare' ? 'bg-blue-500 text-white' :
-                    'bg-gray-500 text-white'
-                  }`}>
-                    {pack.rarity}
-                  </div>
-
-                  {!pack.unlocked && (
-                    <div className="absolute top-2 left-2">
-                      <Lock className="w-6 h-6 text-gray-500" />
+        {/* 3. CONTENIDO DE LA TIENDA SEGÚN PESTAÑA */}
+        <AnimatePresence mode="wait">
+          
+          {/* PESTAÑA 1: COFRES & CAJAS MISTERIOSAS */}
+          {activeTab === 'offers' && (
+            <motion.div
+              key="offers"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="grid grid-cols-1 sm:grid-cols-2 gap-4"
+            >
+              {/* Cofre Neón */}
+              <div className="bg-slate-900/90 border-2 border-cyan-400/40 rounded-3xl p-5 flex flex-col justify-between shadow-[0_0_25px_rgba(0,255,255,0.15)] relative overflow-hidden group">
+                <span className="absolute top-3 right-3 text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-cyan-400 text-slate-950">
+                  POPULAR
+                </span>
+                <div>
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-14 h-14 rounded-2xl bg-cyan-500/20 border border-cyan-400 flex items-center justify-center text-3xl shadow-md group-hover:scale-110 transition-transform">
+                      📦
                     </div>
-                  )}
-                  {isOwned && equippedPack !== pack.id && (
-                    <div className="absolute top-2 left-2">
-                      <Check className="w-6 h-6 text-green-400" />
-                    </div>
-                  )}
-                  {equippedPack === pack.id && (
-                    <motion.div 
-                      className="absolute top-2 left-2"
-                      animate={{ rotate: [0, 15, -15, 0], scale: [1, 1.2, 1] }}
-                      transition={{ duration: 2, repeat: Infinity }}
-                    >
-                      <Star className="w-7 h-7 text-yellow-400 fill-yellow-400" />
-                    </motion.div>
-                  )}
-
-                  <div className={`w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-br ${pack.gradient} flex items-center justify-center text-4xl shadow-lg`}>
-                    <Sparkles className="w-10 h-10 text-white" />
-                  </div>
-
-                  <h3 className="text-xl font-bold text-white text-center mb-2">{pack.name}</h3>
-                  <p className="text-sm text-gray-400 text-center mb-4">{pack.description}</p>
-
-                  <div className="grid grid-cols-4 gap-1 mb-4">
-                    {pack.cards.map((card, i) => (
-                      <div
-                        key={i}
-                        className="w-full aspect-square bg-gray-900/50 rounded-lg flex items-center justify-center text-3xl border border-gray-700"
-                      >
-                        {card}
-                      </div>
-                    ))}
-                  </div>
-
-                  {isOwned ? (
-                    <div className="space-y-2">
-                      <div className="w-full py-2 bg-green-500/20 rounded-lg text-center">
-                        <span className="text-green-400 font-bold">✓ DESBLOQUEADO</span>
-                      </div>
-                      {equippedPack === pack.id ? (
-                        <div className="w-full py-2 bg-cyan-500/30 rounded-lg text-center border-2 border-cyan-400">
-                          <span className="text-cyan-300 font-bold flex items-center justify-center gap-2">
-                            <Star className="w-4 h-4 fill-cyan-300" />
-                            EQUIPADO
-                          </span>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleEquipPack(pack.id);
-                          }}
-                          className="w-full py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:brightness-110 rounded-lg font-bold transition-all"
-                        >
-                          Equipar
-                        </button>
-                      )}
-                    </div>
-                  ) : !pack.unlocked ? (
-                    <div className="w-full py-2 bg-gray-700/50 rounded-lg text-center">
-                      <span className="text-gray-400 font-bold">🔒 BLOQUEADO</span>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleBuyPack(pack);
-                      }}
-                      className={`w-full py-2 rounded-lg font-bold transition-all bg-gradient-to-r ${pack.gradient} hover:brightness-110 shadow-lg`}
-                    >
-                      <ShoppingCart className="w-4 h-4 inline mr-2" />
-                      {pack.price} {pack.currency === 'coins' ? '💰' : '💎'}
-                    </button>
-                  )}
-                </motion.div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* FRAMES CATEGORY */}
-        {selectedCategory === 'frames' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {PROFILE_FRAMES.map((frame, index) => {
-              const isOwned = ownedFrames.includes(frame.id);
-
-              return (
-                <motion.div
-                  key={frame.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  className={`relative p-6 rounded-2xl backdrop-blur-xl border-2 transition-all hover:scale-102 ${
-                    isOwned ? 'bg-green-900/30 border-green-500' : 
-                    frame.unlocked ? `bg-gray-800/50 ${RARITY_COLORS[frame.rarity]}` : 
-                    'bg-gray-900/50 border-gray-700 opacity-60'
-                  }`}
-                >
-                  <div className={`absolute top-2 right-2 px-2 py-1 rounded-lg text-xs font-bold uppercase ${
-                    frame.rarity === 'legendary' ? 'bg-yellow-500 text-black' :
-                    frame.rarity === 'epic' ? 'bg-purple-500 text-white' :
-                    frame.rarity === 'rare' ? 'bg-blue-500 text-white' :
-                    'bg-gray-500 text-white'
-                  }`}>
-                    {frame.rarity}
-                  </div>
-
-                  {!frame.unlocked && (
-                    <div className="absolute top-2 left-2">
-                      <Lock className="w-6 h-6 text-gray-500" />
-                    </div>
-                  )}
-                  {isOwned && equippedFrame !== frame.id && (
-                    <div className="absolute top-2 left-2">
-                      <Check className="w-6 h-6 text-green-400" />
-                    </div>
-                  )}
-                  {equippedFrame === frame.id && (
-                    <motion.div 
-                      className="absolute top-2 left-2"
-                      animate={{ rotate: [0, 15, -15, 0], scale: [1, 1.2, 1] }}
-                      transition={{ duration: 2, repeat: Infinity }}
-                    >
-                      <Star className="w-7 h-7 text-yellow-400 fill-yellow-400" />
-                    </motion.div>
-                  )}
-
-                  <div className={`w-32 h-32 mx-auto mb-4 rounded-full ${frame.borderStyle} bg-gradient-to-br ${frame.gradient} flex items-center justify-center text-6xl shadow-lg`}>
-                    {frame.preview}
-                  </div>
-
-                  <h3 className="text-xl font-bold text-white text-center mb-2">{frame.name}</h3>
-                  <p className="text-sm text-gray-400 text-center mb-4">{frame.description}</p>
-
-                  {isOwned ? (
-                    <div className="space-y-2">
-                      <div className="w-full py-2 bg-green-500/20 rounded-lg text-center">
-                        <span className="text-green-400 font-bold">✓ DESBLOQUEADO</span>
-                      </div>
-                      {equippedFrame === frame.id ? (
-                        <div className="w-full py-2 bg-cyan-500/30 rounded-lg text-center border-2 border-cyan-400">
-                          <span className="text-cyan-300 font-bold flex items-center justify-center gap-2">
-                            <Star className="w-4 h-4 fill-cyan-300" />
-                            EQUIPADO
-                          </span>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => handleEquipFrame(frame.id)}
-                          className="w-full py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:brightness-110 rounded-lg font-bold transition-all"
-                        >
-                          Equipar
-                        </button>
-                      )}
-                    </div>
-                  ) : !frame.unlocked ? (
-                    <div className="w-full py-2 bg-gray-700/50 rounded-lg text-center">
-                      <span className="text-gray-400 font-bold">🔒 BLOQUEADO</span>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => handleBuyFrame(frame)}
-                      className={`w-full py-2 rounded-lg font-bold transition-all bg-gradient-to-r ${frame.gradient} hover:brightness-110 shadow-lg`}
-                    >
-                      <ShoppingCart className="w-4 h-4 inline mr-2" />
-                      {frame.price} {frame.currency === 'coins' ? '💰' : '💎'}
-                    </button>
-                  )}
-                </motion.div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* SKINS CATEGORY */}
-        {selectedCategory === 'skins' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {CARD_SKINS.map((skin, index) => {
-              const isOwned = ownedSkins.includes(skin.id);
-
-              return (
-                <motion.div
-                  key={skin.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  className={`relative p-6 rounded-2xl backdrop-blur-xl border-2 transition-all hover:scale-102 ${
-                    isOwned ? 'bg-green-900/30 border-green-500' : 
-                    skin.unlocked ? `bg-gray-800/50 ${RARITY_COLORS[skin.rarity]}` : 
-                    'bg-gray-900/50 border-gray-700 opacity-60'
-                  }`}
-                >
-                  <div className={`absolute top-2 right-2 px-2 py-1 rounded-lg text-xs font-bold uppercase ${
-                    skin.rarity === 'legendary' ? 'bg-yellow-500 text-black' :
-                    skin.rarity === 'epic' ? 'bg-purple-500 text-white' :
-                    skin.rarity === 'rare' ? 'bg-blue-500 text-white' :
-                    'bg-gray-500 text-white'
-                  }`}>
-                    {skin.rarity}
-                  </div>
-
-                  {!skin.unlocked && (
-                    <div className="absolute top-2 left-2">
-                      <Lock className="w-6 h-6 text-gray-500" />
-                    </div>
-                  )}
-                  {isOwned && equippedSkin !== skin.id && (
-                    <div className="absolute top-2 left-2">
-                      <Check className="w-6 h-6 text-green-400" />
-                    </div>
-                  )}
-                  {equippedSkin === skin.id && (
-                    <motion.div 
-                      className="absolute top-2 left-2"
-                      animate={{ rotate: [0, 15, -15, 0], scale: [1, 1.2, 1] }}
-                      transition={{ duration: 2, repeat: Infinity }}
-                    >
-                      <Star className="w-7 h-7 text-yellow-400 fill-yellow-400" />
-                    </motion.div>
-                  )}
-
-                  <div className={`w-32 h-40 mx-auto mb-4 rounded-xl ${skin.pattern} flex items-center justify-center text-6xl shadow-lg border-4 border-white/20`}>
-                    {skin.preview}
-                  </div>
-
-                  <h3 className="text-xl font-bold text-white text-center mb-2">{skin.name}</h3>
-                  <p className="text-sm text-gray-400 text-center mb-4">{skin.description}</p>
-
-                  {isOwned ? (
-                    <div className="space-y-2">
-                      <div className="w-full py-2 bg-green-500/20 rounded-lg text-center">
-                        <span className="text-green-400 font-bold">✓ DESBLOQUEADO</span>
-                      </div>
-                      {equippedSkin === skin.id ? (
-                        <div className="w-full py-2 bg-cyan-500/30 rounded-lg text-center border-2 border-cyan-400">
-                          <span className="text-cyan-300 font-bold flex items-center justify-center gap-2">
-                            <Star className="w-4 h-4 fill-cyan-300" />
-                            EQUIPADO
-                          </span>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => handleEquipSkin(skin.id)}
-                          className="w-full py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:brightness-110 rounded-lg font-bold transition-all"
-                        >
-                          Equipar
-                        </button>
-                      )}
-                    </div>
-                  ) : !skin.unlocked ? (
-                    <div className="w-full py-2 bg-gray-700/50 rounded-lg text-center">
-                      <span className="text-gray-400 font-bold">🔒 BLOQUEADO</span>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => handleBuySkin(skin)}
-                      className={`w-full py-2 rounded-lg font-bold transition-all bg-gradient-to-r ${skin.gradient} hover:brightness-110 shadow-lg`}
-                    >
-                      <ShoppingCart className="w-4 h-4 inline mr-2" />
-                      {skin.price} {skin.currency === 'coins' ? '💰' : '💎'}
-                    </button>
-                  )}
-                </motion.div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* BOARDS CATEGORY */}
-        {selectedCategory === 'boards' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {BOARD_THEMES.map((board, index) => {
-              const isOwned = ownedBoards.includes(board.id);
-
-              return (
-                <motion.div
-                  key={board.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  className={`relative p-6 rounded-2xl backdrop-blur-xl border-2 transition-all hover:scale-102 ${
-                    isOwned ? 'bg-green-900/30 border-green-500' : 
-                    board.unlocked ? `bg-gray-800/50 ${RARITY_COLORS[board.rarity]}` : 
-                    'bg-gray-900/50 border-gray-700 opacity-60'
-                  }`}
-                >
-                  <div className={`absolute top-2 right-2 px-2 py-1 rounded-lg text-xs font-bold uppercase ${
-                    board.rarity === 'legendary' ? 'bg-yellow-500 text-black' :
-                    board.rarity === 'epic' ? 'bg-purple-500 text-white' :
-                    board.rarity === 'rare' ? 'bg-blue-500 text-white' :
-                    'bg-gray-500 text-white'
-                  }`}>
-                    {board.rarity}
-                  </div>
-
-                  {!board.unlocked && (
-                    <div className="absolute top-2 left-2">
-                      <Lock className="w-6 h-6 text-gray-500" />
-                    </div>
-                  )}
-                  {isOwned && equippedBoard !== board.id && (
-                    <div className="absolute top-2 left-2">
-                      <Check className="w-6 h-6 text-green-400" />
-                    </div>
-                  )}
-                  {equippedBoard === board.id && (
-                    <motion.div 
-                      className="absolute top-2 left-2"
-                      animate={{ rotate: [0, 15, -15, 0], scale: [1, 1.2, 1] }}
-                      transition={{ duration: 2, repeat: Infinity }}
-                    >
-                      <Star className="w-7 h-7 text-yellow-400 fill-yellow-400" />
-                    </motion.div>
-                  )}
-
-                  <div className={`w-full h-40 mx-auto mb-4 rounded-xl ${board.bgColor} bg-gradient-to-br ${board.gradient} flex items-center justify-center text-6xl shadow-lg border-4 border-white/20`}>
-                    {board.preview}
-                  </div>
-
-                  <h3 className="text-xl font-bold text-white text-center mb-2">{board.name}</h3>
-                  <p className="text-sm text-gray-400 text-center mb-4">{board.description}</p>
-
-                  {isOwned ? (
-                    <div className="space-y-2">
-                      <div className="w-full py-2 bg-green-500/20 rounded-lg text-center">
-                        <span className="text-green-400 font-bold">✓ DESBLOQUEADO</span>
-                      </div>
-                      {equippedBoard === board.id ? (
-                        <div className="w-full py-2 bg-cyan-500/30 rounded-lg text-center border-2 border-cyan-400">
-                          <span className="text-cyan-300 font-bold flex items-center justify-center gap-2">
-                            <Star className="w-4 h-4 fill-cyan-300" />
-                            EQUIPADO
-                          </span>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => handleEquipBoard(board.id)}
-                          className="w-full py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:brightness-110 rounded-lg font-bold transition-all"
-                        >
-                          Equipar
-                        </button>
-                      )}
-                    </div>
-                  ) : !board.unlocked ? (
-                    <div className="w-full py-2 bg-gray-700/50 rounded-lg text-center">
-                      <span className="text-gray-400 font-bold">🔒 BLOQUEADO</span>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => handleBuyBoard(board)}
-                      className={`w-full py-2 rounded-lg font-bold transition-all bg-gradient-to-r ${board.gradient} hover:brightness-110 shadow-lg`}
-                    >
-                      <ShoppingCart className="w-4 h-4 inline mr-2" />
-                      {board.price} {board.currency === 'coins' ? '💰' : '💎'}
-                    </button>
-                  )}
-                </motion.div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Selected Pack Details (solo para cards) */}
-        {selectedCategory === 'cards' && selectedPack && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mt-8 p-6 bg-gray-800/50 rounded-2xl backdrop-blur-xl border border-purple-500/50"
-          >
-            {(() => {
-              const pack = CARD_PACKS.find(p => p.id === selectedPack);
-              if (!pack) return null;
-              const isOwned = ownedPacks.includes(pack.id);
-
-              return (
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-2xl font-bold text-white mb-2">{pack.name}</h3>
-                    <p className="text-gray-300 mb-4">{pack.description}</p>
-                    <div className="flex gap-4 text-sm">
-                      <span className="text-gray-400">Rareza: <span className={`font-bold ${
-                        pack.rarity === 'legendary' ? 'text-yellow-400' :
-                        pack.rarity === 'epic' ? 'text-purple-400' :
-                        pack.rarity === 'rare' ? 'text-blue-400' :
-                        'text-gray-400'
-                      }`}>{pack.rarity.toUpperCase()}</span></span>
-                      <span className="text-gray-400">Cartas: <span className="font-bold text-white">{pack.cards.length}</span></span>
+                    <div>
+                      <h3 className="text-lg font-black text-white uppercase">Cofre Neón Cuántico</h3>
+                      <p className="text-xs text-cyan-300 font-mono">Recompensas Rápidas</p>
                     </div>
                   </div>
-                  <div className="flex gap-4 text-6xl">
-                    {pack.cards.slice(0, 4).map((card, i) => (
-                      <motion.div
-                        key={i}
-                        animate={{ rotate: [0, 10, -10, 0] }}
-                        transition={{ duration: 2, delay: i * 0.2, repeat: Infinity }}
-                      >
-                        {card}
-                      </motion.div>
-                    ))}
-                  </div>
+                  <p className="text-xs text-gray-300 leading-relaxed">
+                    Contiene entre <strong className="text-yellow-300">200 y 600 Monedas 🪙</strong>, Gemas 💎 y probabilidad de cartas raras.
+                  </p>
                 </div>
-              );
-            })()}
-          </motion.div>
+
+                <button
+                  onClick={() => handleOpenChest('neon')}
+                  className="mt-4 w-full py-3 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-[0_0_20px_rgba(0,255,255,0.4)] transition cursor-pointer"
+                >
+                  Abrir Cofre • 500 🪙
+                </button>
+              </div>
+
+              {/* Cofre Mítico */}
+              <div className="bg-slate-900/90 border-2 border-purple-500/50 rounded-3xl p-5 flex flex-col justify-between shadow-[0_0_30px_rgba(168,85,247,0.2)] relative overflow-hidden group">
+                <span className="absolute top-3 right-3 text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-purple-400 text-slate-950">
+                  MÍTICO 👑
+                </span>
+                <div>
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-14 h-14 rounded-2xl bg-purple-500/20 border border-purple-400 flex items-center justify-center text-3xl shadow-md group-hover:scale-110 transition-transform">
+                      👑
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-black text-white uppercase">Cofre Imperial Legendario</h3>
+                      <p className="text-xs text-purple-300 font-mono">Garantía Legendaria</p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-300 leading-relaxed">
+                    Contiene hasta <strong className="text-yellow-300">3,000 Monedas 🪙</strong>, 35 Gemas 💎 y la skin mítica <strong className="text-pink-400">Nebulosa Cósmica</strong>.
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => handleOpenChest('mythic')}
+                  className="mt-4 w-full py-3 bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-400 hover:to-pink-500 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-[0_0_25px_rgba(168,85,247,0.4)] transition cursor-pointer"
+                >
+                  Abrir Cofre • 70 💎
+                </button>
+              </div>
+            </motion.div>
+          )}
+
+          {/* PESTAÑA 2: SKINS DE CARTAS */}
+          {activeTab === 'skins' && (
+            <motion.div
+              key="skins"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5"
+            >
+              {CARD_SKINS.map((skin) => {
+                const isOwned = ownedSkins.includes(skin.id);
+                const isEquipped = equippedSkin === skin.id;
+
+                return (
+                  <div
+                    key={skin.id}
+                    className={`rounded-3xl p-4 flex flex-col justify-between border-2 transition-all relative overflow-hidden ${
+                      isEquipped
+                        ? 'bg-slate-900/95 border-cyan-400 shadow-[0_0_25px_rgba(0,255,255,0.4)] scale-102 ring-2 ring-cyan-300'
+                        : isOwned
+                        ? 'bg-slate-900/80 border-emerald-500/40'
+                        : 'bg-slate-900/70 border-white/10 hover:border-white/30'
+                    }`}
+                  >
+                    {skin.tag && (
+                      <span className="absolute top-2.5 right-2.5 text-[8px] font-black uppercase px-2 py-0.5 rounded-full bg-yellow-400 text-slate-950 shadow-sm">
+                        {skin.tag}
+                      </span>
+                    )}
+
+                    <div>
+                      {/* 3D Card Preview Badge */}
+                      <div className="w-full aspect-[4/3] rounded-2xl bg-gradient-to-br from-slate-950 to-indigo-950 border border-white/15 mb-3 flex items-center justify-center relative overflow-hidden shadow-inner group">
+                        <div className={`w-16 h-22 rounded-xl bg-gradient-to-br ${skin.gradient} border-2 border-white/30 flex items-center justify-center text-3xl shadow-xl transform transition-transform group-hover:scale-110 group-hover:rotate-3`}>
+                          {skin.icon}
+                        </div>
+                      </div>
+
+                      <h4 className="text-base font-black text-white uppercase">{skin.name}</h4>
+                      <p className="text-[11px] text-gray-300 mt-0.5 leading-relaxed">{skin.desc}</p>
+                    </div>
+
+                    <div className="mt-4 pt-3 border-t border-white/10">
+                      {isEquipped ? (
+                        <div className="w-full py-2 bg-cyan-400 text-slate-950 text-center font-black text-xs uppercase tracking-wider rounded-xl flex items-center justify-center gap-1">
+                          <Check className="w-3.5 h-3.5" /> Equipado
+                        </div>
+                      ) : isOwned ? (
+                        <button
+                          onClick={() => handleBuyOrEquipItem(skin)}
+                          className="w-full py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition cursor-pointer"
+                        >
+                          Equipar Dorso
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleBuyOrEquipItem(skin)}
+                          className="w-full py-2 bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition cursor-pointer flex items-center justify-center gap-1"
+                        >
+                          Comprar • {skin.price} {skin.currency === 'coins' ? '🪙' : '💎'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </motion.div>
+          )}
+
+          {/* PESTAÑA 3: MARCOS DE AVATAR */}
+          {activeTab === 'frames' && (
+            <motion.div
+              key="frames"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="grid grid-cols-1 sm:grid-cols-3 gap-4"
+            >
+              {PROFILE_FRAMES.map((frame) => {
+                const isOwned = ownedFrames.includes(frame.id);
+                const isEquipped = equippedFrame === frame.id;
+
+                return (
+                  <div
+                    key={frame.id}
+                    className={`rounded-3xl p-5 flex flex-col justify-between border-2 transition-all relative overflow-hidden ${
+                      isEquipped
+                        ? 'bg-slate-900/95 border-cyan-400 shadow-[0_0_25px_rgba(0,255,255,0.4)] scale-102 ring-2 ring-cyan-300'
+                        : isOwned
+                        ? 'bg-slate-900/80 border-emerald-500/40'
+                        : 'bg-slate-900/70 border-white/10 hover:border-white/30'
+                    }`}
+                  >
+                    <div>
+                      {/* Frame Preview */}
+                      <div className="w-20 h-20 mx-auto mb-3 rounded-2xl border-4 border-cyan-400 p-1 flex items-center justify-center shadow-lg relative bg-slate-950">
+                        <span className="text-3xl">{frame.icon}</span>
+                      </div>
+
+                      <h4 className="text-base font-black text-white uppercase text-center">{frame.name}</h4>
+                      <p className="text-xs text-gray-300 mt-1 text-center">{frame.desc}</p>
+                    </div>
+
+                    <div className="mt-4 pt-3 border-t border-white/10">
+                      {isEquipped ? (
+                        <div className="w-full py-2 bg-cyan-400 text-slate-950 text-center font-black text-xs uppercase tracking-wider rounded-xl flex items-center justify-center gap-1">
+                          <Check className="w-3.5 h-3.5" /> Equipado
+                        </div>
+                      ) : isOwned ? (
+                        <button
+                          onClick={() => handleBuyOrEquipItem(frame)}
+                          className="w-full py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition cursor-pointer"
+                        >
+                          Equipar Marco
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleBuyOrEquipItem(frame)}
+                          className="w-full py-2 bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition cursor-pointer"
+                        >
+                          Comprar • {frame.price} {frame.currency === 'coins' ? '🪙' : '💎'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </motion.div>
+          )}
+
+          {/* PESTAÑA 4: BANCO DE RECURSOS */}
+          {activeTab === 'bank' && (
+            <motion.div
+              key="bank"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="grid grid-cols-1 sm:grid-cols-3 gap-4"
+            >
+              {[
+                { coins: 1500, gemCost: 20, tag: 'BÁSICO', bonus: '' },
+                { coins: 5000, gemCost: 50, tag: 'POPULAR ⭐', bonus: '+20% Extra' },
+                { coins: 15000, gemCost: 120, tag: 'MEJOR VALOR 👑', bonus: '+40% Extra' },
+              ].map((pack, idx) => (
+                <div
+                  key={idx}
+                  className="bg-slate-900/90 border-2 border-yellow-500/40 rounded-3xl p-5 flex flex-col justify-between shadow-[0_0_25px_rgba(234,179,8,0.15)] relative overflow-hidden"
+                >
+                  <span className="absolute top-3 right-3 text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-yellow-400 text-slate-950">
+                    {pack.tag}
+                  </span>
+
+                  <div>
+                    <div className="w-16 h-16 rounded-2xl bg-yellow-500/20 border border-yellow-400 flex items-center justify-center text-4xl mx-auto mb-3 shadow-md">
+                      💰
+                    </div>
+
+                    <h4 className="text-xl font-black text-yellow-300 text-center font-mono">
+                      +{pack.coins.toLocaleString()} Monedas
+                    </h4>
+                    {pack.bonus && (
+                      <p className="text-xs text-emerald-400 font-bold text-center mt-1">{pack.bonus}</p>
+                    )}
+                  </div>
+
+                  <button
+                    onClick={() => handleBankExchange(pack.coins, pack.gemCost)}
+                    className="mt-4 w-full py-2.5 bg-gradient-to-r from-cyan-400 to-blue-500 hover:from-cyan-300 hover:to-blue-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-md transition cursor-pointer"
+                  >
+                    Canjear • {pack.gemCost} 💎
+                  </button>
+                </div>
+              ))}
+            </motion.div>
+          )}
+
+        </AnimatePresence>
+      </main>
+
+      {/* MODAL DE COMPRA / EQUIPAMIENTO EXITOSO (REEMPLAZO DE ALERT()) */}
+      <AnimatePresence>
+        {purchaseModalItem && (
+          <div className="fixed inset-0 bg-black/85 backdrop-blur-xl flex items-center justify-center z-50 p-4" onClick={() => setPurchaseModalItem(null)}>
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              className="bg-slate-900/95 border-2 border-cyan-400 rounded-3xl p-6 max-w-sm w-full text-center shadow-[0_0_50px_rgba(0,255,255,0.4)] space-y-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="w-16 h-16 rounded-2xl bg-cyan-500/20 border border-cyan-400 flex items-center justify-center text-3xl mx-auto shadow-md">
+                {purchaseModalItem.item.icon}
+              </div>
+
+              <div>
+                <h3 className="text-xl font-black text-white uppercase">
+                  {purchaseModalItem.action === 'buy' ? '¡COMPRA EXITOSA!' : '¡EQUIPADO CON ÉXITO!'}
+                </h3>
+                <p className="text-xs text-gray-300 mt-1">
+                  Has configurado <strong className="text-cyan-300">{purchaseModalItem.item.name}</strong> para tus partidas.
+                </p>
+              </div>
+
+              <button
+                onClick={() => setPurchaseModalItem(null)}
+                className="w-full py-3 bg-cyan-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-md transition cursor-pointer"
+              >
+                Aceptar
+              </button>
+            </motion.div>
+          </div>
         )}
-      </div>
+      </AnimatePresence>
+
+      {/* MODAL DE ANIMACIÓN DE APERTURA DE COFRE */}
+      <AnimatePresence>
+        {openingChest && (
+          <div className="fixed inset-0 bg-black/90 backdrop-blur-2xl flex items-center justify-center z-50 p-4">
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="bg-slate-900/95 border-2 border-yellow-500 rounded-3xl p-6 sm:p-8 max-w-md w-full text-center shadow-[0_0_60px_rgba(234,179,8,0.5)] space-y-5"
+            >
+              {isChestOpening ? (
+                <div className="space-y-4 py-8">
+                  <motion.div
+                    animate={{ rotate: [-5, 5, -5, 5, 0], scale: [1, 1.15, 1.25, 1.3] }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                    className="text-7xl filter drop-shadow-[0_0_30px_rgba(234,179,8,0.8)]"
+                  >
+                    📦
+                  </motion.div>
+                  <h3 className="text-xl font-black uppercase text-yellow-300 animate-pulse tracking-wider">
+                    ¡ABRIENDO COFRE MISTERIOSO...!
+                  </h3>
+                </div>
+              ) : chestReward ? (
+                <div className="space-y-4">
+                  <div className="text-6xl animate-bounce">
+                    🎉
+                  </div>
+
+                  <div>
+                    <h3 className="text-2xl font-black uppercase text-yellow-300">
+                      ¡RECOMPENSAS DESBLOQUEADAS!
+                    </h3>
+                    <p className="text-xs text-gray-300">Has obtenido botín épico del cofre</p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 p-3 bg-slate-950 rounded-2xl border border-white/10">
+                    <div className="p-2 bg-yellow-500/10 rounded-xl border border-yellow-500/30 text-center">
+                      <span className="text-xs text-yellow-400 font-bold block">MONEDAS</span>
+                      <span className="text-xl font-black text-yellow-300 font-mono">+{chestReward.coins} 🪙</span>
+                    </div>
+
+                    <div className="p-2 bg-cyan-500/10 rounded-xl border border-cyan-500/30 text-center">
+                      <span className="text-xs text-cyan-400 font-bold block">GEMAS</span>
+                      <span className="text-xl font-black text-cyan-300 font-mono">+{chestReward.gems} 💎</span>
+                    </div>
+                  </div>
+
+                  {chestReward.skinName && (
+                    <div className="p-3 bg-purple-950/60 border border-purple-500/50 rounded-2xl text-xs font-bold text-purple-300">
+                      ✨ ¡DESBLOQUEASTE LA SKIN MÍTICA: {chestReward.skinName}!
+                    </div>
+                  )}
+
+                  <button
+                    onClick={() => setOpeningChest(null)}
+                    className="w-full py-3 bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg transition cursor-pointer"
+                  >
+                    Reclamar y Continuar
+                  </button>
+                </div>
+              ) : null}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

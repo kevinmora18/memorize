@@ -130,13 +130,14 @@ export function BossSelect({ onSelectBoss, onBack }: BossSelectProps) {
             Volver al Lobby
           </span>
         </button>
-        <div className="bg-gray-800/50 backdrop-blur-xl px-6 py-2 rounded-full border border-gray-700">
-          <h1 className="text-xl font-bold tracking-[0.3em] uppercase text-cyan-400">
-            SELECCIONA BOSS
+        <div className="bg-gray-800/50 backdrop-blur-xl px-6 py-2 rounded-full border border-purple-500/40 shadow-[0_0_15px_rgba(168,85,247,0.3)]">
+          <h1 className="text-xl font-bold tracking-[0.25em] uppercase text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-purple-300 to-pink-400">
+            TRÍADAS & RELACIONES
           </h1>
         </div>
         <div className="w-32" />
       </div>
+
 
       {/* Content */}
       <div className="flex-1 flex items-center justify-center p-8 z-10">

@@ -105,19 +105,31 @@ export function AdminPanel({ onBack, currentUserId }: AdminPanelProps) {
     try {
       if (activeTab === 'users') {
         const res = await fetch(`${API_BASE}/api/admin/users`);
-        if (res.ok) setUsers(await res.json());
+        if (res.ok) {
+          const data = await res.json();
+          setUsers(Array.isArray(data) ? data : (data.users || []));
+        }
       } else if (activeTab === 'matches') {
         const res = await fetch(`${API_BASE}/api/admin/matches`);
-        if (res.ok) setMatches(await res.json());
+        if (res.ok) {
+          const data = await res.json();
+          setMatches(Array.isArray(data) ? data : (data.matches || []));
+        }
       } else if (activeTab === 'stats') {
         const res = await fetch(`${API_BASE}/api/admin/stats`);
         if (res.ok) setStats(await res.json());
       } else if (activeTab === 'bans') {
         const res = await fetch(`${API_BASE}/api/admin/banned-users`);
-        if (res.ok) setBannedUsers(await res.json());
+        if (res.ok) {
+          const data = await res.json();
+          setBannedUsers(Array.isArray(data) ? data : (data.users || []));
+        }
       } else if (activeTab === 'announcements') {
         const res = await fetch(`${API_BASE}/api/admin/announcements`);
-        if (res.ok) setAnnouncements(await res.json());
+        if (res.ok) {
+          const data = await res.json();
+          setAnnouncements(Array.isArray(data) ? data : (data.announcements || []));
+        }
       } else if (activeTab === 'economy') {
         const res = await fetch(`${API_BASE}/api/admin/promotions`);
         if (res.ok) setPromotions(await res.json());
@@ -135,15 +147,19 @@ export function AdminPanel({ onBack, currentUserId }: AdminPanelProps) {
     if (!confirm('¿Estás seguro de eliminar este usuario?')) return;
     
     try {
-      const res = await fetch(`${API_BASE}/api/admin/users/${userId}`, {
+      const res = await fetch(`${API_BASE}/api/admin/users/${userId}?adminId=${currentUserId}`, {
         method: 'DELETE'
       });
       if (res.ok) {
         alert('Usuario eliminado');
         loadData();
+      } else {
+        const error = await res.json();
+        alert(`Error: ${error.error || 'No se pudo eliminar'}`);
       }
     } catch (error) {
       console.error('Error deleting user:', error);
+      alert('Error al eliminar usuario');
     }
   };
 
@@ -154,14 +170,18 @@ export function AdminPanel({ onBack, currentUserId }: AdminPanelProps) {
       const res = await fetch(`${API_BASE}/api/admin/users/${userId}/role`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role: newRole })
+        body: JSON.stringify({ role: newRole, adminId: currentUserId })
       });
       if (res.ok) {
         alert(`Rol actualizado a ${newRole}`);
         loadData();
+      } else {
+        const error = await res.json();
+        alert(`Error: ${error.error || 'No se pudo actualizar el rol'}`);
       }
     } catch (error) {
       console.error('Error updating role:', error);
+      alert('Error al actualizar rol');
     }
   };
 
@@ -177,15 +197,20 @@ export function AdminPanel({ onBack, currentUserId }: AdminPanelProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           coins: coins ? parseInt(coins) : undefined,
-          gems: gems ? parseInt(gems) : undefined
+          gems: gems ? parseInt(gems) : undefined,
+          adminId: currentUserId
         })
       });
       if (res.ok) {
         alert('Monedas actualizadas');
         loadData();
+      } else {
+        const error = await res.json();
+        alert(`Error: ${error.error || 'No se pudieron actualizar las monedas'}`);
       }
     } catch (error) {
       console.error('Error updating currency:', error);
+      alert('Error al actualizar monedas');
     }
   };
 
@@ -201,15 +226,20 @@ export function AdminPanel({ onBack, currentUserId }: AdminPanelProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           reason,
-          duration: duration ? parseInt(duration) : null
+          duration: duration ? parseInt(duration) : null,
+          adminId: currentUserId
         })
       });
       if (res.ok) {
         alert('Usuario baneado');
         loadData();
+      } else {
+        const error = await res.json();
+        alert(`Error: ${error.error || 'No se pudo banear'}`);
       }
     } catch (error) {
       console.error('Error banning user:', error);
+      alert('Error al banear usuario');
     }
   };
 
@@ -217,7 +247,7 @@ export function AdminPanel({ onBack, currentUserId }: AdminPanelProps) {
     if (!confirm('¿Desbanear este usuario?')) return;
     
     try {
-      const res = await fetch(`${API_BASE}/api/admin/users/${userId}/unban`, {
+      const res = await fetch(`${API_BASE}/api/admin/users/${userId}/unban?adminId=${currentUserId}`, {
         method: 'PUT'
       });
       if (res.ok) {
@@ -242,14 +272,18 @@ export function AdminPanel({ onBack, currentUserId }: AdminPanelProps) {
       const res = await fetch(`${API_BASE}/api/admin/announcements`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, message, type })
+        body: JSON.stringify({ title, message, type, adminId: currentUserId })
       });
       if (res.ok) {
         alert('Anuncio creado');
         loadData();
+      } else {
+        const error = await res.json();
+        alert(`Error: ${error.error || 'No se pudo crear'}`);
       }
     } catch (error) {
       console.error('Error creating announcement:', error);
+      alert('Error al crear anuncio');
     }
   };
 
@@ -257,28 +291,36 @@ export function AdminPanel({ onBack, currentUserId }: AdminPanelProps) {
     if (!confirm('¿Eliminar este anuncio?')) return;
     
     try {
-      const res = await fetch(`${API_BASE}/api/admin/announcements/${id}`, {
+      const res = await fetch(`${API_BASE}/api/admin/announcements/${id}?adminId=${currentUserId}`, {
         method: 'DELETE'
       });
       if (res.ok) {
         alert('Anuncio eliminado');
         loadData();
+      } else {
+        const error = await res.json();
+        alert(`Error: ${error.error || 'No se pudo eliminar'}`);
       }
     } catch (error) {
       console.error('Error deleting announcement:', error);
+      alert('Error al eliminar anuncio');
     }
   };
 
   const handleToggleAnnouncement = async (id: string) => {
     try {
-      const res = await fetch(`${API_BASE}/api/admin/announcements/${id}/toggle`, {
+      const res = await fetch(`${API_BASE}/api/admin/announcements/${id}/toggle?adminId=${currentUserId}`, {
         method: 'PUT'
       });
       if (res.ok) {
         loadData();
+      } else {
+        const error = await res.json();
+        alert(`Error: ${error.error || 'No se pudo cambiar estado'}`);
       }
     } catch (error) {
       console.error('Error toggling announcement:', error);
+      alert('Error al cambiar estado');
     }
   };
 
@@ -296,14 +338,19 @@ export function AdminPanel({ onBack, currentUserId }: AdminPanelProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           coins: coins ? parseInt(coins) : undefined,
-          gems: gems ? parseInt(gems) : undefined
+          gems: gems ? parseInt(gems) : undefined,
+          adminId: currentUserId
         })
       });
       if (res.ok) {
         alert('¡Monedas regaladas a todos!');
+      } else {
+        const error = await res.json();
+        alert(`Error: ${error.error || 'No se pudo regalar'}`);
       }
     } catch (error) {
       console.error('Error giving currency:', error);
+      alert('Error al regalar monedas');
     }
   };
 
@@ -383,45 +430,57 @@ function TabButton({ active, onClick, icon, label }: { active: boolean; onClick:
 }
 
 function StatsTab({ stats }: { stats: any }) {
+  if (!stats) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-gray-400">Cargando estadísticas...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-4 gap-6">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="p-6 bg-gradient-to-br from-blue-900/30 to-blue-800/30 border-2 border-blue-400 rounded-xl">
           <Users className="w-8 h-8 text-blue-400 mb-2" />
           <p className="text-sm text-gray-300">Total Usuarios</p>
-          <p className="text-4xl font-bold text-blue-400">{stats.totalUsers}</p>
+          <p className="text-4xl font-bold text-blue-400">{stats.totalUsers || 0}</p>
         </motion.div>
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="p-6 bg-gradient-to-br from-purple-900/30 to-purple-800/30 border-2 border-purple-400 rounded-xl">
           <Trophy className="w-8 h-8 text-purple-400 mb-2" />
           <p className="text-sm text-gray-300">Total Partidas</p>
-          <p className="text-4xl font-bold text-purple-400">{stats.totalMatches}</p>
+          <p className="text-4xl font-bold text-purple-400">{stats.totalMatches || 0}</p>
         </motion.div>
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="p-6 bg-gradient-to-br from-green-900/30 to-green-800/30 border-2 border-green-400 rounded-xl">
           <Trophy className="w-8 h-8 text-green-400 mb-2" />
           <p className="text-sm text-gray-300">Partidas Ganadas</p>
-          <p className="text-4xl font-bold text-green-400">{stats.totalGamesWon}</p>
+          <p className="text-4xl font-bold text-green-400">{stats.totalGamesWon || 0}</p>
         </motion.div>
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="p-6 bg-gradient-to-br from-orange-900/30 to-orange-800/30 border-2 border-orange-400 rounded-xl">
           <BarChart3 className="w-8 h-8 text-orange-400 mb-2" />
           <p className="text-sm text-gray-300">Puntuación Promedio</p>
-          <p className="text-4xl font-bold text-orange-400">{Math.round(stats.avgScore)}</p>
+          <p className="text-4xl font-bold text-orange-400">{Math.round(stats.avgScore || 0)}</p>
         </motion.div>
       </div>
       <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700">
         <h2 className="text-2xl font-bold mb-4 text-yellow-400">🏆 Top 10 Mejores Puntuaciones</h2>
         <div className="space-y-2">
-          {stats.topScores.map((score: any, index: number) => (
-            <div key={index} className="flex justify-between items-center p-3 bg-gray-900/50 rounded-lg">
-              <div className="flex items-center gap-3">
-                <span className="text-2xl font-bold text-yellow-400">#{index + 1}</span>
-                <div>
-                  <p className="font-bold">{score.user.username || score.user.email}</p>
-                  <p className="text-sm text-gray-400">{score.mode}</p>
+          {stats.topScores && stats.topScores.length > 0 ? (
+            stats.topScores.map((score: any, index: number) => (
+              <div key={index} className="flex justify-between items-center p-3 bg-gray-900/50 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl font-bold text-yellow-400">#{index + 1}</span>
+                  <div>
+                    <p className="font-bold">{score.user?.username || score.user?.email || 'Usuario'}</p>
+                    <p className="text-sm text-gray-400">{score.mode || 'N/A'}</p>
+                  </div>
                 </div>
+                <span className="text-2xl font-bold text-purple-400">{score.score || 0}</span>
               </div>
-              <span className="text-2xl font-bold text-purple-400">{score.score}</span>
-            </div>
-          ))}
+            ))
+          ) : (
+            <p className="text-center text-gray-400 py-8">No hay puntuaciones registradas</p>
+          )}
         </div>
       </div>
     </div>
@@ -429,6 +488,15 @@ function StatsTab({ stats }: { stats: any }) {
 }
 
 function UsersTab({ users, currentUserId, onDelete, onToggleRole, onUpdateCurrency, onBan }: any) {
+  if (!users || users.length === 0) {
+    return (
+      <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700">
+        <h2 className="text-2xl font-bold mb-4">👥 Gestión de Usuarios</h2>
+        <p className="text-center text-gray-400 py-8">No hay usuarios registrados</p>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700">
       <h2 className="text-2xl font-bold mb-4">👥 Gestión de Usuarios</h2>
@@ -450,17 +518,17 @@ function UsersTab({ users, currentUserId, onDelete, onToggleRole, onUpdateCurren
           <tbody>
             {users.map((user: any) => (
               <tr key={user.id} className="border-b border-gray-700/50 hover:bg-gray-700/30">
-                <td className="p-3">{user.email}</td>
+                <td className="p-3">{user.email || 'N/A'}</td>
                 <td className="p-3">{user.username || '-'}</td>
                 <td className="p-3">
                   <span className={`px-2 py-1 rounded text-xs font-bold ${user.role === 'admin' ? 'bg-red-500/20 text-red-400' : 'bg-blue-500/20 text-blue-400'}`}>
-                    {user.role}
+                    {user.role || 'player'}
                   </span>
                 </td>
-                <td className="p-3">{user.level}</td>
-                <td className="p-3">{user.coins} 💰</td>
-                <td className="p-3">{user.gems} 💎</td>
-                <td className="p-3">{user._count.matches}</td>
+                <td className="p-3">{user.level || 1}</td>
+                <td className="p-3">{user.coins || 0} 💰</td>
+                <td className="p-3">{user.gems || 0} 💎</td>
+                <td className="p-3">{user._count?.matches || 0}</td>
                 <td className="p-3">
                   {user.isBanned ? (
                     <span className="px-2 py-1 rounded text-xs font-bold bg-red-500/20 text-red-400">BANEADO</span>
@@ -498,6 +566,15 @@ function UsersTab({ users, currentUserId, onDelete, onToggleRole, onUpdateCurren
 }
 
 function MatchesTab({ matches }: any) {
+  if (!matches || matches.length === 0) {
+    return (
+      <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700">
+        <h2 className="text-2xl font-bold mb-4">🎮 Historial de Partidas</h2>
+        <p className="text-center text-gray-400 py-8">No hay partidas registradas</p>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700">
       <h2 className="text-2xl font-bold mb-4">🎮 Historial de Partidas</h2>
@@ -516,18 +593,18 @@ function MatchesTab({ matches }: any) {
           <tbody>
             {matches.map((match: any) => (
               <tr key={match.id} className="border-b border-gray-700/50 hover:bg-gray-700/30">
-                <td className="p-3">{match.user.username || match.user.email}</td>
+                <td className="p-3">{match.user?.username || match.user?.email || 'Usuario'}</td>
                 <td className="p-3">
-                  <span className="px-2 py-1 rounded text-xs font-bold bg-purple-500/20 text-purple-400">{match.mode}</span>
+                  <span className="px-2 py-1 rounded text-xs font-bold bg-purple-500/20 text-purple-400">{match.mode || 'N/A'}</span>
                 </td>
                 <td className="p-3">{match.level || '-'}</td>
-                <td className="p-3 font-bold text-yellow-400">{match.score}</td>
+                <td className="p-3 font-bold text-yellow-400">{match.score || 0}</td>
                 <td className="p-3">
                   <span className={`px-2 py-1 rounded text-xs font-bold ${match.won ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
                     {match.won ? 'Victoria' : 'Derrota'}
                   </span>
                 </td>
-                <td className="p-3 text-sm text-gray-400">{new Date(match.createdAt).toLocaleString()}</td>
+                <td className="p-3 text-sm text-gray-400">{match.createdAt ? new Date(match.createdAt).toLocaleString() : 'N/A'}</td>
               </tr>
             ))}
           </tbody>
@@ -676,6 +753,15 @@ function EconomyTab({ promotions, onGiveCurrencyAll }: any) {
 }
 
 function AnalyticsTab({ analytics }: any) {
+  if (!analytics) {
+    return (
+      <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700">
+        <h2 className="text-2xl font-bold mb-4">📊 Analíticas</h2>
+        <p className="text-center text-gray-400 py-8">Cargando analíticas...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-3 gap-6">
@@ -684,33 +770,43 @@ function AnalyticsTab({ analytics }: any) {
             <TrendingUp className="w-5 h-5 text-green-400" />
             Usuarios Activos (7 días)
           </h3>
-          <p className="text-4xl font-bold text-green-400">{analytics.activeUsersCount}</p>
+          <p className="text-4xl font-bold text-green-400">{analytics.activeUsersCount || 0}</p>
         </div>
 
         <div className="col-span-2 bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700">
           <h3 className="text-xl font-bold mb-4">📊 Modos Más Populares</h3>
-          <div className="space-y-2">
-            {analytics.modeStats.map((stat: any, index: number) => (
-              <div key={index} className="flex justify-between items-center p-2 bg-gray-900/50 rounded">
-                <span className="font-bold">{stat.mode}</span>
-                <span className="text-purple-400">{stat._count.mode} partidas</span>
-              </div>
-            ))}
-          </div>
+          {analytics.modeStats && analytics.modeStats.length > 0 ? (
+            <div className="space-y-2">
+              {analytics.modeStats.map((stat: any, index: number) => (
+                <div key={index} className="flex justify-between items-center p-2 bg-gray-900/50 rounded">
+                  <span className="font-bold">{stat.mode || 'N/A'}</span>
+                  <span className="text-purple-400">{stat._count?.mode || 0} partidas</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-center text-gray-400 py-4">No hay datos de modos</p>
+          )}
         </div>
       </div>
 
       <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700">
         <h3 className="text-xl font-bold mb-4">📈 Registros por Día (Últimos 7 días)</h3>
-        <div className="space-y-2">
-          {analytics.usersPerDay.map((day: any, index: number) => (
-            <div key={index} className="flex justify-between items-center p-2 bg-gray-900/50 rounded">
-              <span>{new Date(day.date).toLocaleDateString()}</span>
-              <span className="text-blue-400">{day.count} usuarios</span>
-            </div>
-          ))}
-        </div>
+        {analytics.usersPerDay && analytics.usersPerDay.length > 0 ? (
+          <div className="space-y-2">
+            {analytics.usersPerDay.map((day: any, index: number) => (
+              <div key={index} className="flex justify-between items-center p-2 bg-gray-900/50 rounded">
+                <span>{day.date ? new Date(day.date).toLocaleDateString() : 'N/A'}</span>
+                <span className="text-blue-400">{day.count || 0} usuarios</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-center text-gray-400 py-4">No hay datos de registros</p>
+        )}
       </div>
     </div>
   );
 }
+
+

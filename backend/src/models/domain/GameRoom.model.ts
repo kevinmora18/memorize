@@ -37,16 +37,19 @@ export interface IGameState {
 
 export interface IGameRoomData {
   id: string;
+  code?: string;
   name: string;
   hostId: string;
   hostName: string;
   maxPlayers: number;
   mode: string;
+  cardCount?: number;
   difficulty: string;
   isPrivate: boolean;
   password?: string;
   createdAt: Date;
 }
+
 
 /**
  * Clase Player - Representa un jugador en la sala
@@ -127,11 +130,13 @@ export class Player implements IPlayer {
  */
 export class GameRoom {
   readonly id: string;
+  readonly code: string;
   name: string;
   hostId: string;
   hostName: string;
   maxPlayers: number;
   mode: string;
+  cardCount: number;
   difficulty: string;
   isPrivate: boolean;
   password?: string;
@@ -142,11 +147,13 @@ export class GameRoom {
 
   constructor(data: IGameRoomData) {
     this.id = data.id;
+    this.code = data.code || Math.random().toString(36).substring(2, 8).toUpperCase();
     this.name = data.name;
     this.hostId = data.hostId;
     this.hostName = data.hostName;
     this.maxPlayers = data.maxPlayers;
     this.mode = data.mode;
+    this.cardCount = data.cardCount || 12;
     this.difficulty = data.difficulty;
     this.isPrivate = data.isPrivate;
     this.password = data.password;
@@ -164,6 +171,7 @@ export class GameRoom {
       scores: new Map(),
     };
   }
+
 
   /**
    * GESTIÓN DE JUGADORES
@@ -241,20 +249,24 @@ export class GameRoom {
    * GESTIÓN DEL JUEGO
    */
 
-  startGame(cards: any[]): void {
-    if (!this.areAllPlayersReady()) {
+  getRequiredFlipsCount(): number {
+    return this.mode === 'triads' ? 3 : 2;
+  }
+
+  startGame(cards: any[], bypassReadyCheck = false): void {
+    if (!bypassReadyCheck && !this.areAllPlayersReady() && this.players.size > 1) {
       throw new Error('No todos los jugadores están listos');
     }
 
-    if (this.players.size < 2) {
-      throw new Error('Se necesitan al menos 2 jugadores');
+    if (this.players.size < 1) {
+      throw new Error('Se necesita al menos 1 jugador');
     }
 
     this.gameState = {
       status: GameStatus.PLAYING,
       currentRound: 1,
       totalRounds: 1,
-      cards,
+      cards: cards || [],
       flippedCards: [],
       matchedCards: [],
       currentTurn: Array.from(this.players.keys())[0],
@@ -274,12 +286,13 @@ export class GameRoom {
   }
 
   flipCard(playerId: string, cardIndex: number): void {
-    if (this.gameState.currentTurn !== playerId) {
+    if (this.gameState.currentTurn && this.gameState.currentTurn !== playerId) {
       throw new Error('No es tu turno');
     }
 
-    if (this.gameState.flippedCards.length >= 2) {
-      throw new Error('Ya hay 2 cartas volteadas');
+    const required = this.getRequiredFlipsCount();
+    if (this.gameState.flippedCards.length >= required) {
+      throw new Error(`Ya hay ${required} cartas volteadas`);
     }
 
     if (this.gameState.flippedCards.includes(cardIndex) ||
@@ -290,32 +303,50 @@ export class GameRoom {
     this.gameState.flippedCards.push(cardIndex);
   }
 
-  checkMatch(): { isMatch: boolean; card1Index: number; card2Index: number } {
-    if (this.gameState.flippedCards.length !== 2) {
-      throw new Error('No hay 2 cartas volteadas');
+  checkMatch(): { isMatch: boolean; cardIndexes: number[] } {
+    const required = this.getRequiredFlipsCount();
+    if (this.gameState.flippedCards.length !== required) {
+      throw new Error(`No hay ${required} cartas volteadas`);
     }
 
-    const [card1Idx, card2Idx] = this.gameState.flippedCards;
-    const card1 = this.gameState.cards[card1Idx];
-    const card2 = this.gameState.cards[card2Idx];
+    const flippedIndexes = [...this.gameState.flippedCards];
+    const flippedCardObjects = flippedIndexes.map(idx => this.gameState.cards[idx]).filter(Boolean);
+
+    if (flippedCardObjects.length !== required) {
+      return { isMatch: false, cardIndexes: flippedIndexes };
+    }
+
+    const first = flippedCardObjects[0];
+    let isMatch = false;
+
+    if (first.groupId !== undefined) {
+      isMatch = flippedCardObjects.every(c => c.groupId === first.groupId);
+    } else if (first.symbol !== undefined) {
+      isMatch = flippedCardObjects.every(c => c.symbol === first.symbol);
+    } else {
+      isMatch = flippedCardObjects.every(c => c.id === first.id);
+    }
 
     return {
-      isMatch: card1.id === card2.id,
-      card1Index: card1Idx,
-      card2Index: card2Idx,
+      isMatch,
+      cardIndexes: flippedIndexes,
     };
   }
 
-  registerMatch(playerId: string, card1Index: number, card2Index: number): void {
-    this.gameState.matchedCards.push(card1Index, card2Index);
+  registerMatch(playerId: string, cardIndexes: number[]): void {
+    cardIndexes.forEach(idx => {
+      if (!this.gameState.matchedCards.includes(idx)) {
+        this.gameState.matchedCards.push(idx);
+      }
+    });
     
     const currentScore = this.gameState.scores.get(playerId) || 0;
-    this.gameState.scores.set(playerId, currentScore + 1);
+    this.gameState.scores.set(playerId, currentScore + 150);
 
     const player = this.players.get(playerId);
     if (player) {
       player.addMatch();
-      player.addScore(1);
+      player.addScore(150);
     }
   }
 
@@ -325,14 +356,15 @@ export class GameRoom {
 
   nextTurn(): string {
     const playerIds = Array.from(this.players.keys());
-    const currentIndex = playerIds.indexOf(this.gameState.currentTurn!);
-    const nextIndex = (currentIndex + 1) % playerIds.length;
+    if (playerIds.length === 0) return '';
+    const currentIndex = this.gameState.currentTurn ? playerIds.indexOf(this.gameState.currentTurn) : -1;
+    const nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % playerIds.length;
     this.gameState.currentTurn = playerIds[nextIndex];
     return this.gameState.currentTurn;
   }
 
   isGameFinished(): boolean {
-    return this.gameState.matchedCards.length === this.gameState.cards.length;
+    return this.gameState.cards.length > 0 && this.gameState.matchedCards.length >= this.gameState.cards.length;
   }
 
   finishGame(): string | null {
@@ -340,7 +372,7 @@ export class GameRoom {
 
     // Determinar ganador
     let winnerId: string | null = null;
-    let maxScore = 0;
+    let maxScore = -1;
 
     this.gameState.scores.forEach((score, playerId) => {
       if (score > maxScore) {
@@ -386,18 +418,23 @@ export class GameRoom {
   toJSON() {
     return {
       id: this.id,
+      code: this.code,
       name: this.name,
       hostId: this.hostId,
       hostName: this.hostName,
       maxPlayers: this.maxPlayers,
       currentPlayers: this.players.size,
       mode: this.mode,
+      gameMode: this.mode,
+      cardCount: this.cardCount,
       difficulty: this.difficulty,
       isPrivate: this.isPrivate,
       status: this.gameState.status,
+      isStarted: this.gameState.status === GameStatus.PLAYING,
       createdAt: this.createdAt,
       players: Array.from(this.players.values()).map(p => p.toJSON()),
       gameState: this.gameState,
     };
   }
+
 }

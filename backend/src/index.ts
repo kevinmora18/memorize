@@ -52,10 +52,11 @@ async function bootstrap() {
 
   // Middleware
   app.use(cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    origin: true,
     credentials: true,
   }));
   app.use(express.json());
+
 
   // ============================================
   // 3. CONFIGURAR RUTAS
@@ -105,15 +106,13 @@ async function bootstrap() {
     });
   });
 
-  // ============================================
-  // 6. INICIAR SERVIDOR
-  // ============================================
-  const PORT = process.env.PORT || 5175;
+  const PORT = Number(process.env.PORT) || 3000;
 
-  httpServer.listen(PORT, () => {
-    console.log('\n✅ Servidor iniciado con éxito!\n');
+  httpServer.listen(PORT, '0.0.0.0', () => {
+    console.log('\n✅ Servidor iniciado con éxito en 0.0.0.0!\n');
     console.log(`🌐 Servidor HTTP: http://localhost:${PORT}`);
     console.log(`📡 Socket.IO: ws://localhost:${PORT}`);
+
     console.log(`🗄️  Base de datos: Conectada (Prisma + PostgreSQL)`);
     console.log(`🏗️  Arquitectura: POO con Dependency Injection`);
     console.log('\n📚 Endpoints disponibles:');

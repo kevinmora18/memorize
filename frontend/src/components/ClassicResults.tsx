@@ -5,7 +5,6 @@ import { Award, Star, Zap, Target, Flame, RotateCcw, Home, TrendingUp } from 'lu
 interface ClassicResultsProps {
   level: number;
   score: number;
-  aiScore: number;
   accuracy: number;
   maxCombo: number;
   matchedPairs: number;
@@ -18,7 +17,7 @@ interface ClassicResultsProps {
 }
 
 export function ClassicResults({
-  level, score, aiScore, accuracy, maxCombo, matchedPairs, totalPairs,
+  level, score, accuracy, maxCombo, matchedPairs, totalPairs,
   timeLeft, won, onNextLevel, onRetry, onBackToLobby
 }: ClassicResultsProps) {
   const xpGained = won
@@ -111,28 +110,18 @@ export function ClassicResults({
             )}
           </div>
 
-          {/* VS Score */}
-          <div className="px-6 py-3 flex items-center gap-4 border-y border-white/5">
-            <div className="flex-1 text-center">
-              <div className="text-[10px] text-gray-500 uppercase tracking-widest mb-0.5">Tu Puntuación</div>
-              <motion.div
-                className="text-2xl font-black text-cyan-400"
-                style={{ textShadow: '0 0 15px rgba(34,211,238,0.6)' }}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.5 }}
-              >
-                {score.toLocaleString()}
-              </motion.div>
-            </div>
-            <div className="text-gray-600 font-black text-lg">VS</div>
-            <div className="flex-1 text-center">
-              <div className="text-[10px] text-gray-500 uppercase tracking-widest mb-0.5">IA Rival</div>
-              <div className="text-2xl font-black text-red-400"
-                style={{ textShadow: '0 0 15px rgba(248,113,113,0.6)' }}>
-                {aiScore.toLocaleString()}
-              </div>
-            </div>
+          {/* Puntuación */}
+          <div className="px-6 py-3 text-center border-y border-white/5">
+            <div className="text-[10px] text-gray-500 uppercase tracking-widest mb-0.5">Puntuación Final</div>
+            <motion.div
+              className="text-3xl font-black text-cyan-400"
+              style={{ textShadow: '0 0 15px rgba(34,211,238,0.6)' }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.5 }}
+            >
+              {score.toLocaleString()}
+            </motion.div>
           </div>
 
           {/* Stats Grid */}

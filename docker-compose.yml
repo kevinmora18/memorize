@@ -1,0 +1,61 @@
+services:
+  # ── Base de Datos PostgreSQL ──────────────────────────────────
+  database:
+    image: postgres:16-alpine
+    container_name: memorize-database
+    environment:
+      POSTGRES_DB: memorize
+      POSTGRES_USER: memorize_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cambia_esta_clave}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U memorize_user -d memorize"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - memorize-network
+
+  # ── Backend API (Express + Socket.IO + Prisma) ───────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: memorize-backend
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://memorize_user:${POSTGRES_PASSWORD:-cambia_esta_clave}@database:5432/memorize?schema=public
+      FRONTEND_URL: "*"
+    depends_on:
+      database:
+        condition: service_healthy
+    networks:
+      - memorize-network
+    restart: unless-stopped
+
+  # ── Frontend (React + Vite + Nginx) ───────────────────────────
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: memorize-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - memorize-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    name: memorize_postgres_data
+
+networks:
+  memorize-network:
+    name: memorize-network
+    driver: bridge

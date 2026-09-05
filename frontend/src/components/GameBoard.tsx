@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MemoryCard } from './MemoryCard';
 import { ArrowLeft, Star, Zap } from 'lucide-react';
+import { getEquippedPackCards } from '../lib/shopSystem';
 import type { Universe } from '../App';
+
 
 interface GameBoardProps {
   universe: Universe;
@@ -31,8 +33,11 @@ export function GameBoard({ universe, level, onLevelComplete, onBackToMenu }: Ga
   const [moves, setMoves] = useState(0);
 
   useEffect(() => {
-    const symbols = [...config.symbols].slice(0, cardCount / 2);
+    const equippedCards = getEquippedPackCards();
+    const availableSymbols = equippedCards.length >= cardCount / 2 ? equippedCards : config.symbols;
+    const symbols = [...availableSymbols].slice(0, cardCount / 2);
     const duplicatedSymbols = [...symbols, ...symbols];
+
 
     if (level === 1) {
       duplicatedSymbols.push('💣');

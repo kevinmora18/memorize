@@ -72,3 +72,8 @@ temp/
 .vscode-test/
 
 *.exe
+
+# AI & Assistant metadata
+.kiro/
+.agents/
+skills-lock.json

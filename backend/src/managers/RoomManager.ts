@@ -35,24 +35,29 @@ export class RoomManager {
    */
   createRoom(data: {
     name: string;
+    code?: string;
     hostId: string;
     hostName: string;
     hostLevel: number;
     maxPlayers: number;
     mode: string;
+    cardCount?: number;
     difficulty: string;
     isPrivate: boolean;
     password?: string;
   }): GameRoom {
     const roomId = this.generateRoomId();
+    const code = data.code || Math.random().toString(36).substring(2, 8).toUpperCase();
 
     const room = new GameRoom({
       id: roomId,
+      code,
       name: data.name,
       hostId: data.hostId,
       hostName: data.hostName,
       maxPlayers: data.maxPlayers,
       mode: data.mode,
+      cardCount: data.cardCount || 12,
       difficulty: data.difficulty,
       isPrivate: data.isPrivate,
       password: data.password,
@@ -72,24 +77,37 @@ export class RoomManager {
     });
 
     this.rooms.set(roomId, room);
-    console.log(`🏠 Sala creada: ${roomId} (${data.name})`);
+    console.log(`🏠 Sala creada: ${roomId} [Código: ${code}] (${data.name})`);
 
     return room;
   }
 
   /**
-   * Obtener una sala por ID
+   * Obtener una sala por ID o por Código
    */
-  getRoom(roomId: string): GameRoom | undefined {
-    return this.rooms.get(roomId);
+  getRoom(roomIdOrCode: string): GameRoom | undefined {
+    if (this.rooms.has(roomIdOrCode)) {
+      return this.rooms.get(roomIdOrCode);
+    }
+    const search = roomIdOrCode.trim().toUpperCase();
+    for (const room of this.rooms.values()) {
+      if (room.code && room.code.toUpperCase() === search) {
+        return room;
+      }
+      if (room.id.toUpperCase() === search) {
+        return room;
+      }
+    }
+    return undefined;
   }
 
   /**
    * Verificar si una sala existe
    */
-  hasRoom(roomId: string): boolean {
-    return this.rooms.has(roomId);
+  hasRoom(roomIdOrCode: string): boolean {
+    return this.getRoom(roomIdOrCode) !== undefined;
   }
+
 
   /**
    * Eliminar una sala

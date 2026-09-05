@@ -4,7 +4,8 @@ import { ArrowLeft, Users, Play, Bot, MessageCircle, Send, Sparkles } from 'luci
 
 interface AIRoomWaitingProps {
   onStartGame: () => void;
-  onBack: () => void;
+  onBack?: () => void;
+  onBackToLobby?: () => void;
 }
 
 interface AIPlayer {
@@ -15,7 +16,8 @@ interface AIPlayer {
   isReady: boolean;
 }
 
-export function AIRoomWaiting({ onStartGame, onBack }: AIRoomWaitingProps) {
+export function AIRoomWaiting({ onStartGame, onBack, onBackToLobby }: AIRoomWaitingProps) {
+  const handleBack = onBackToLobby ?? onBack ?? (() => {});
   const roomName = localStorage.getItem('aiFriendsRoomName') || 'Sala de IA';
   const gameMode = localStorage.getItem('aiFriendsMode') || 'pairs';
   
@@ -37,7 +39,7 @@ export function AIRoomWaiting({ onStartGame, onBack }: AIRoomWaitingProps) {
 
   // Simular que los bots se unen progresivamente
   useEffect(() => {
-    const timers: NodeJS.Timeout[] = [];
+  const timers: ReturnType<typeof setTimeout>[] = [];
 
     aiPlayers.forEach((player, index) => {
       const timer = setTimeout(() => {
@@ -122,7 +124,7 @@ export function AIRoomWaiting({ onStartGame, onBack }: AIRoomWaitingProps) {
       {/* Header */}
       <div className="relative z-10 flex justify-between items-center mb-8">
         <button
-          onClick={onBack}
+          onClick={handleBack}
           className="flex items-center gap-2 px-4 py-2 bg-gray-800/50 hover:bg-gray-700/50 rounded-xl backdrop-blur-sm border border-gray-700 transition-colors"
         >
           <ArrowLeft className="w-5 h-5" />

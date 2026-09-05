@@ -234,7 +234,6 @@ export function GameScreen({ initialLevel = 1, onBackToLobby }: GameScreenProps)
   const [cards, setCards] = useState<CardData[]>([]);
   const [selected, setSelected] = useState<number[]>([]);
   const [score, setScore] = useState(0);
-  const [aiScore, setAiScore] = useState(0);
   const [combo, setCombo] = useState(0);
   const [maxCombo, setMaxCombo] = useState(0);
   const [timer, setTimer] = useState(120);
@@ -372,14 +371,7 @@ export function GameScreen({ initialLevel = 1, onBackToLobby }: GameScreenProps)
     return () => clearInterval(shuffleTick);
   }, [phase, level]);
 
-  // ── AI score drift ────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (phase !== 'playing') return;
-    const aiTick = setInterval(() => {
-      setAiScore(s => s + Math.floor(Math.random() * 80 + 20));
-    }, 4000 + Math.random() * 3000);
-    return () => clearInterval(aiTick);
-  }, [phase]);
+
 
   // ── Card click ────────────────────────────────────────────────────────────
   const handleCardClick = useCallback((idx: number) => {
@@ -568,7 +560,6 @@ export function GameScreen({ initialLevel = 1, onBackToLobby }: GameScreenProps)
         <ClassicHUD
           level={level}
           score={score}
-          aiScore={aiScore}
           combo={combo}
           timer={timer}
           maxTime={maxTime}
@@ -685,7 +676,6 @@ export function GameScreen({ initialLevel = 1, onBackToLobby }: GameScreenProps)
         <ClassicResults
           level={level}
           score={score}
-          aiScore={aiScore}
           accuracy={accuracy}
           maxCombo={maxCombo}
           matchedPairs={matchedGroups}
@@ -693,7 +683,7 @@ export function GameScreen({ initialLevel = 1, onBackToLobby }: GameScreenProps)
           timeLeft={timer}
           won={resultWon}
           onNextLevel={() => { setLevel(l => l + 1); setAttempts(0); }}
-          onRetry={() => { setScore(0); setAiScore(0); setCombo(0); setMaxCombo(0); setAttempts(0); setEnergy(60); initLevel(level); }}
+          onRetry={() => { setScore(0); setCombo(0); setMaxCombo(0); setAttempts(0); setEnergy(60); initLevel(level); }}
           onBackToLobby={onBackToLobby}
         />
       )}

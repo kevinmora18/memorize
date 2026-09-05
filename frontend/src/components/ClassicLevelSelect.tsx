@@ -52,33 +52,33 @@ export function ClassicLevelSelect({ onSelectLevel, onBack, unlockedLevels = 10 
       </div>
 
       {/* Header */}
-      <div className="absolute top-0 w-full p-6 flex justify-between items-center z-20">
+      <div className="w-full p-4 md:p-6 flex justify-between items-center z-20 max-w-5xl">
         <button 
           onClick={onBack}
           className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors group"
         >
-          <div className="w-10 h-10 rounded-full glass-panel flex items-center justify-center group-hover:border-cyan-400/50 transition-colors">
+          <div className="w-9 h-9 md:w-10 md:h-10 rounded-full glass-panel flex items-center justify-center group-hover:border-cyan-400/50 transition-colors">
             <ChevronLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
           </div>
-          <span className="font-bold tracking-widest uppercase text-sm">Volver al Lobby</span>
+          <span className="font-bold tracking-widest uppercase text-xs md:text-sm hidden sm:inline">Volver</span>
         </button>
-        <div className="glass-panel px-6 py-2 rounded-full border-cyan-500/30">
-          <h1 className="text-xl font-bold tracking-[0.3em] uppercase neon-text-cyan">SELECCIÓN DE NIVEL</h1>
+        <div className="glass-panel px-4 md:px-6 py-1.5 md:py-2 rounded-full border-cyan-500/30">
+          <h1 className="text-sm md:text-xl font-bold tracking-[0.2em] uppercase neon-text-cyan">SELECCIÓN DE NIVEL</h1>
         </div>
-        <div className="w-32" /> {/* Spacer */}
+        <div className="w-9 sm:w-24" /> {/* Spacer */}
       </div>
 
       {/* Level Carousel */}
-      <div className="relative w-full max-w-4xl h-[500px] flex items-center justify-center z-10 perspective-1000">
+      <div className="relative w-full max-w-4xl h-[460px] md:h-[500px] flex items-center justify-center z-10 perspective-1000 my-auto">
         
         <button 
           onClick={prevLevel}
-          className="absolute left-10 z-30 w-14 h-14 rounded-full glass-panel flex items-center justify-center text-purple-400 hover:text-white hover:border-purple-400 transition-all hover:scale-110"
+          className="absolute left-2 sm:left-6 md:left-10 z-30 w-10 h-10 md:w-14 md:h-14 rounded-full glass-panel flex items-center justify-center text-purple-400 hover:text-white hover:border-purple-400 transition-all hover:scale-110"
         >
-          <ChevronLeft className="w-8 h-8" />
+          <ChevronLeft className="w-6 h-6 md:w-8 md:h-8" />
         </button>
 
-        <div className="relative w-[340px] h-[460px] flex items-center justify-center">
+        <div className="relative w-[280px] sm:w-[340px] h-[420px] sm:h-[460px] flex items-center justify-center">
           <AnimatePresence mode="wait">
             <motion.div
               key={currentIndex}
@@ -91,61 +91,57 @@ export function ClassicLevelSelect({ onSelectLevel, onBack, unlockedLevels = 10 
               <div className={`w-full h-full rounded-2xl glass-panel relative overflow-hidden flex flex-col ${isUnlocked ? 'border-purple-500/50 shadow-[0_0_40px_rgba(168,85,247,0.2)]' : 'border-gray-800/50 opacity-80'}`}>
                 
                 {/* Number Watermark */}
-                <div className="absolute -top-10 -right-10 text-[200px] font-black text-white/[0.03] leading-none select-none pointer-events-none">
+                <div className="absolute -top-10 -right-10 text-[180px] sm:text-[200px] font-black text-white/[0.03] leading-none select-none pointer-events-none">
                   {currentLevelNumber}
                 </div>
 
                 {/* Content */}
-                <div className="p-8 flex flex-col h-full relative z-10">
-                  <div className="flex justify-between items-start mb-6">
-                    <div className="bg-purple-900/40 border border-purple-500/30 px-3 py-1 rounded text-xs font-bold tracking-widest text-purple-300">
-                      CLÁSICO
+                <div className="p-6 sm:p-8 flex flex-col h-full relative z-10 justify-between">
+                  <div>
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="bg-purple-900/40 border border-purple-500/30 px-3 py-1 rounded text-xs font-bold tracking-widest text-purple-300">
+                        CLÁSICO
+                      </div>
+                      {!isUnlocked && <Lock className="w-6 h-6 text-red-400" />}
                     </div>
-                    {!isUnlocked && <Lock className="w-6 h-6 text-red-400" />}
-                  </div>
 
-                  <h2 className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-br from-white to-gray-500 mb-2">
-                    NIVEL {currentLevelNumber}
-                  </h2>
-                  <p className="text-gray-400 text-sm mb-8">
-                    {currentLevelNumber <= 4 ? 'Entrenamiento Básico' : 
-                     currentLevelNumber <= 8 ? 'Desafío Intermedio' : 
-                     currentLevelNumber <= 12 ? 'Simulación Avanzada' : 'Pesadilla Neural'}
-                  </p>
+                    <h2 className="text-4xl sm:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-br from-white to-gray-500 mb-1">
+                      NIVEL {currentLevelNumber}
+                    </h2>
+                    <p className="text-gray-400 text-xs sm:text-sm mb-4">
+                      {currentLevelNumber <= 4 ? 'Entrenamiento Básico' : 
+                       currentLevelNumber <= 8 ? 'Desafío Intermedio' : 
+                       currentLevelNumber <= 12 ? 'Simulación Avanzada' : 'Pesadilla Neural'}
+                    </p>
 
-                  <div className="space-y-4 mb-auto">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-400 flex items-center gap-2"><Shield className="w-4 h-4 text-cyan-400"/> Pares</span>
-                      <span className="text-white font-bold">{Math.min(4 + currentLevelNumber, 14)}</span>
+                    <div className="space-y-2.5 sm:space-y-4">
+                      <div className="flex items-center justify-between text-xs sm:text-sm">
+                        <span className="text-gray-400 flex items-center gap-2"><Shield className="w-4 h-4 text-cyan-400"/> Pares</span>
+                        <span className="text-white font-bold">{Math.min(4 + currentLevelNumber, 14)}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs sm:text-sm">
+                        <span className="text-gray-400 flex items-center gap-2"><Zap className="w-4 h-4 text-yellow-400"/> Tiempo Límite</span>
+                        <span className="text-white font-bold">{Math.max(120 - (currentLevelNumber - 1) * 8, 40)}s</span>
+                      </div>
+                      {currentLevelNumber >= 3 && currentLevelNumber <= 5 && (
+                        <div className="flex items-center justify-between text-xs sm:text-sm">
+                          <span className="text-gray-400 flex items-center gap-2"><Star className="w-4 h-4 text-purple-400"/> Efecto</span>
+                          <span className="text-purple-400 font-bold">Glitch</span>
+                        </div>
+                      )}
+                      {currentLevelNumber >= 4 && (
+                        <div className="flex items-center justify-between text-xs sm:text-sm">
+                          <span className="text-gray-400 flex items-center gap-2"><Star className="w-4 h-4 text-red-400"/> Peligro</span>
+                          <span className="text-red-400 font-bold">Bombas</span>
+                        </div>
+                      )}
                     </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-400 flex items-center gap-2"><Zap className="w-4 h-4 text-yellow-400"/> Tiempo Límite</span>
-                      <span className="text-white font-bold">{Math.max(120 - (currentLevelNumber - 1) * 8, 40)}s</span>
-                    </div>
-                    {currentLevelNumber >= 3 && currentLevelNumber <= 5 && (
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-400 flex items-center gap-2"><Star className="w-4 h-4 text-purple-400"/> Efecto</span>
-                        <span className="text-purple-400 font-bold">Glitch</span>
-                      </div>
-                    )}
-                    {currentLevelNumber >= 4 && (
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-400 flex items-center gap-2"><Star className="w-4 h-4 text-red-400"/> Peligro</span>
-                        <span className="text-red-400 font-bold">Bombas</span>
-                      </div>
-                    )}
-                    {currentLevelNumber >= 8 && (
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-400 flex items-center gap-2"><Star className="w-4 h-4 text-gray-400"/> Peligro</span>
-                        <span className="text-gray-400 font-bold">Oscuridad</span>
-                      </div>
-                    )}
                   </div>
 
                   <button
                     onClick={() => isUnlocked && onSelectLevel(currentLevelNumber)}
                     disabled={!isUnlocked}
-                    className={`w-full py-4 rounded-xl font-bold tracking-widest uppercase transition-all flex items-center justify-center gap-3 ${
+                    className={`w-full py-3.5 sm:py-4 rounded-xl font-bold tracking-widest uppercase transition-all flex items-center justify-center gap-3 mt-4 ${
                       isUnlocked 
                         ? 'bg-purple-600 hover:bg-purple-500 text-white shadow-[0_0_20px_rgba(168,85,247,0.4)] hover:shadow-[0_0_30px_rgba(168,85,247,0.6)]' 
                         : 'bg-gray-800 text-gray-500 cursor-not-allowed'
@@ -165,12 +161,13 @@ export function ClassicLevelSelect({ onSelectLevel, onBack, unlockedLevels = 10 
 
         <button 
           onClick={nextLevel}
-          className="absolute right-10 z-30 w-14 h-14 rounded-full glass-panel flex items-center justify-center text-purple-400 hover:text-white hover:border-purple-400 transition-all hover:scale-110"
+          className="absolute right-2 sm:right-6 md:right-10 z-30 w-10 h-10 md:w-14 md:h-14 rounded-full glass-panel flex items-center justify-center text-purple-400 hover:text-white hover:border-purple-400 transition-all hover:scale-110"
         >
-          <ChevronRight className="w-8 h-8" />
+          <ChevronRight className="w-6 h-6 md:w-8 md:h-8" />
         </button>
 
       </div>
+
 
       {/* Level Indicators */}
       <div className="absolute bottom-10 flex gap-2 z-20 max-w-2xl flex-wrap justify-center px-4">

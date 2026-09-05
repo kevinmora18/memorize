@@ -20,6 +20,7 @@ import { AIRoomWaiting } from './components/AIRoomWaiting';
 import { ProfileScreen } from './components/ProfileScreen';
 import { RankedScreen } from './components/RankedScreen';
 import { TiendaScreen } from './components/TiendaScreen';
+import { CollectionScreen } from './components/CollectionScreen';
 import { AdminPanel } from './components/AdminPanel';
 import { ParejasConexiones } from './components/ParejasConexiones';
 import { TriadasConexiones } from './components/TriadasConexiones';
@@ -29,7 +30,9 @@ import socket from './lib/socket';
 export type Universe = 'volcania' | 'frostheim' | 'neural' | 'verdalis' | 'lunaris';
 export type BossType = 'naturaleza' | 'ciencia' | 'humano' | 'ecosistema' | 'tecnologia';
 
-export type GameScreen = 'login' | 'register' | 'lobby' | 'roomWaiting' | 'multiplayerGame' | 'finalResults' | 'game' | 'boss' | 'boss-select' | 'reward' | 'classic' | 'classicLevelSelect' | 'loading' | 'infinite' | 'challenge' | 'ai-friends' | 'ai-room-lobby' | 'ai-room-waiting' | 'profile' | 'ranked' | 'tienda' | 'admin';
+export type GameScreen = 'login' | 'register' | 'lobby' | 'roomWaiting' | 'multiplayerGame' | 'finalResults' | 'game' | 'boss' | 'boss-select' | 'reward' | 'classic' | 'classicLevelSelect' | 'loading' | 'infinite' | 'challenge' | 'ai-friends' | 'ai-room-lobby' | 'ai-room-waiting' | 'profile' | 'ranked' | 'tienda' | 'collection' | 'admin';
+
+
 
 export type Player = {
   id: string;
@@ -52,10 +55,15 @@ export type Room = {
   currentRound: number;
   currentTeam: number;
   creatorId: string;
+  gameMode?: 'classic' | 'connections' | 'triads';
+  cardCount?: number;
 };
 
+
 export default function App() {
-  const API_BASE = (import.meta.env.VITE_API_BASE as string) || 'http://localhost:5175';
+  const API_BASE = '';
+
+
   const [currentScreen, setCurrentScreen] = useState<GameScreen>('login');
   const [currentUser, setCurrentUser] = useState<Player | null>(null);
   const [currentRoom, setCurrentRoom] = useState<Room | null>(null);
@@ -64,6 +72,8 @@ export default function App() {
   const [selectedBossType, setSelectedBossType] = useState<BossType>('naturaleza');
   
   const [rooms, setRooms] = useState<Room[]>([]);
+
+  const [multiplayerInitialCards, setMultiplayerInitialCards] = useState<any[] | null>(null);
 
   useEffect(() => {
     socket.on('rooms:update', (data: Room[]) => setRooms(data));
@@ -74,20 +84,35 @@ export default function App() {
       console.log('room started', payload);
       setCurrentScreen('multiplayerGame');
     });
+    socket.on('game:started', (payload: any) => {
+      console.log('game started with cards', payload);
+      if (payload?.cards) {
+        setMultiplayerInitialCards(payload.cards);
+      }
+      setCurrentScreen('multiplayerGame');
+    });
 
-    (async () => {
+    const fetchRooms = async () => {
       try {
         const res = await fetch(`${API_BASE}/api/rooms`);
-        if (res.ok) setRooms(await res.json());
+        if (res.ok) {
+          const data = await res.json();
+          setRooms(data);
+        }
       } catch (err) {
-        console.error('Error fetching rooms', err);
+        // Silencioso
       }
-    })();
+    };
+
+    fetchRooms();
+    const interval = setInterval(fetchRooms, 2000);
 
     return () => {
+      clearInterval(interval);
       socket.off('rooms:update');
       socket.off('player:joined');
       socket.off('room:started');
+      socket.off('game:started');
     };
   }, []);
 
@@ -96,61 +121,248 @@ export default function App() {
 
   useEffect(() => {
     if (currentRoom) {
-      const updatedRoomData = rooms.find(r => r.id === currentRoom.id);
-      setCurrentRoom(updatedRoomData || null);
+      const updatedRoomData = rooms.find(r => r.id === currentRoom.id || r.code === currentRoom.code);
+      if (updatedRoomData) {
+        setCurrentRoom(updatedRoomData);
+      }
     }
   }, [rooms]);
 
   const handleLoginSuccess = (email: string) => {
+    const player: Player = { 
+      id: `user_${Date.now()}`, 
+      email: email || 'jugador@memorize.com', 
+      teamId: 0,
+      role: 'player',
+      level: 1,
+      xp: 0,
+      coins: 1500,
+      gems: 80
+    };
+    setCurrentUser(player);
+    setCurrentScreen('lobby');
+
+    // Sincronizar en background si el backend responde
     (async () => {
       try {
         const res = await fetch(`${API_BASE}/api/auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email }),
+          body: JSON.stringify({ email: email || 'jugador@memorize.com' }),
         });
         if (res.ok) {
           const userData = await res.json();
-          const player: Player = { 
-            id: userData.id, 
-            email: userData.email, 
-            teamId: 0,
-            role: userData.role,  // ✅ Agregar el role del backend
-            level: userData.level,
-            xp: userData.xp,
-            coins: userData.coins,
-            gems: userData.gems
-          };
-          setCurrentUser(player);
-          setPostLoadingScreen('lobby');
-          setCurrentScreen('loading');
-        } else {
-          const player: Player = { id: Date.now().toString(), email, teamId: 0, role: 'player' };
-          setCurrentUser(player);
-          setPostLoadingScreen('lobby');
-          setCurrentScreen('loading');
+          setCurrentUser(prev => ({
+            ...(prev || player),
+            id: userData.id || player.id,
+            role: userData.role || 'player',
+            level: userData.level || 1,
+            xp: userData.xp || 0,
+            coins: userData.coins || 1500,
+            gems: userData.gems || 80,
+          }));
         }
       } catch (err) {
-        console.error('Error en login:', err);
-        const player: Player = { id: Date.now().toString(), email, teamId: 0, role: 'player' };
-        setCurrentUser(player);
-        setPostLoadingScreen('lobby');
-        setCurrentScreen('loading');
+        console.error('Login background sync error:', err);
       }
     })();
   };
 
-  const generateRoomCode = (): string => {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+
+  const generateRoomCode = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     let code = '';
     for (let i = 0; i < 6; i++) {
       code += chars.charAt(Math.floor(Math.random() * chars.length));
     }
-    if (rooms.some(r => r.code === code)) {
-      return generateRoomCode();
-    }
     return code;
   };
+
+  const handleCreateRoom = async (
+    roomName?: string,
+    gameMode: 'classic' | 'connections' | 'triads' = 'triads',
+    cardCount: number = 12
+  ) => {
+    let activeUser = currentUser;
+    if (!activeUser) {
+      activeUser = {
+        id: `guest_${Date.now()}`,
+        email: `Jugador_${Math.floor(Math.random() * 8999 + 1000)}@host.com`,
+        teamId: 1,
+        role: 'player',
+        level: 1,
+      };
+      setCurrentUser(activeUser);
+    }
+
+    const code = generateRoomCode();
+    const fallbackRoom: Room = {
+      id: `room_${Date.now()}`,
+      name: roomName || `Duelo 1 vs 1 (${gameMode.toUpperCase()})`,
+      code,
+      players: [{ ...activeUser, teamId: 1 }],
+      maxPlayers: 2,
+      isStarted: false,
+      currentRound: 1,
+      currentTeam: 1,
+      creatorId: activeUser.id,
+      gameMode,
+      cardCount,
+    };
+
+    try {
+      const res = await fetch(`${API_BASE}/api/rooms`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: roomName || `Duelo 1 vs 1 (${gameMode.toUpperCase()})`,
+          code,
+          hostId: activeUser.id,
+          creator: activeUser,
+          maxPlayers: 2,
+          mode: gameMode,
+          cardCount,
+        }),
+      });
+      if (res.ok) {
+        const newRoom = await res.json() as Room;
+        const completeRoom = { ...newRoom, code: newRoom.code || code, gameMode, cardCount };
+        setRooms(prev => [completeRoom, ...prev.filter(r => r.id !== completeRoom.id)]);
+        setCurrentRoom(completeRoom);
+        setCurrentScreen('roomWaiting');
+        return;
+      }
+    } catch (err) {
+      console.error('Error creating room on backend, using local room', err);
+    }
+
+    setRooms(prev => [fallbackRoom, ...prev]);
+    setCurrentRoom(fallbackRoom);
+    setCurrentScreen('roomWaiting');
+  };
+
+  const handleJoinRoom = async (roomIdOrCode: string) => {
+    let activeUser = currentUser;
+    if (!activeUser) {
+      activeUser = {
+        id: `guest_${Date.now()}`,
+        email: `Rival_${Math.floor(Math.random() * 8999 + 1000)}@movil.com`,
+        teamId: 2,
+        role: 'player',
+        level: 1,
+      };
+      setCurrentUser(activeUser);
+    }
+
+    const cleanCode = roomIdOrCode.trim().toUpperCase();
+
+    // 1. Intentar unirse directamente vía API
+    try {
+      const res = await fetch(`${API_BASE}/api/rooms/${cleanCode}/join`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: activeUser.id, player: activeUser, teamId: 2 }),
+      });
+      if (res.ok) {
+        const updatedRoom = await res.json() as Room;
+        setRooms(prev => prev.map(r => r.id === updatedRoom.id ? updatedRoom : r));
+        setCurrentRoom(updatedRoom);
+        setCurrentScreen('roomWaiting');
+        return;
+      }
+    } catch (err) {
+      console.error('Error joining room on backend by code/id', err);
+    }
+
+    // 2. Si no se resolvió por URL directa, buscar en el array de salas en memoria
+    const targetRoom = rooms.find(
+      r => r.code?.toUpperCase() === cleanCode || r.id.toUpperCase() === cleanCode
+    );
+
+    if (targetRoom) {
+      try {
+        const res = await fetch(`${API_BASE}/api/rooms/${targetRoom.id}/join`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: activeUser.id, player: activeUser, teamId: 2 }),
+        });
+        if (res.ok) {
+          const updatedRoom = await res.json() as Room;
+          setRooms(prev => prev.map(r => r.id === updatedRoom.id ? updatedRoom : r));
+          setCurrentRoom(updatedRoom);
+          setCurrentScreen('roomWaiting');
+          return;
+        }
+      } catch (err) {}
+
+      // Fallback local
+      const updatedPlayers = [...(targetRoom.players || []), { ...activeUser, teamId: 2 }];
+      const updatedRoom = { ...targetRoom, players: updatedPlayers };
+      setRooms(prev => prev.map(r => r.id === targetRoom.id ? updatedRoom : r));
+      setCurrentRoom(updatedRoom);
+      setCurrentScreen('roomWaiting');
+      return;
+    }
+
+    // 3. Si no existe la sala aún (por ejemplo eres el primero en ingresar el código '000000'), crearla con ese código exacto:
+    const newRoom: Room = {
+      id: `room_${cleanCode.toLowerCase()}`,
+      name: `Sala [${cleanCode}]`,
+      code: cleanCode,
+      players: [{ ...activeUser, teamId: 1 }],
+      maxPlayers: 2,
+      isStarted: false,
+      currentRound: 1,
+      currentTeam: 1,
+      creatorId: activeUser.id,
+      gameMode: 'connections',
+      cardCount: 12,
+    };
+
+    try {
+      const createRes = await fetch(`${API_BASE}/api/rooms`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: `Sala [${cleanCode}]`,
+          code: cleanCode,
+          hostId: activeUser.id,
+          creator: activeUser,
+          maxPlayers: 2,
+          mode: 'connections',
+          cardCount: 12,
+        }),
+      });
+      if (createRes.ok) {
+        const createdRoom = (await createRes.json()) as Partial<Room>;
+        const completeRoom: Room = {
+          id: createdRoom.id || newRoom.id,
+          name: createdRoom.name || newRoom.name,
+          code: cleanCode,
+          players: createdRoom.players || newRoom.players,
+          maxPlayers: createdRoom.maxPlayers || 2,
+          isStarted: createdRoom.isStarted ?? false,
+          currentRound: createdRoom.currentRound ?? 1,
+          currentTeam: createdRoom.currentTeam ?? 1,
+          creatorId: createdRoom.creatorId || activeUser.id,
+          gameMode: 'connections',
+          cardCount: 12,
+        };
+        setRooms(prev => [completeRoom, ...prev.filter(r => r.id !== completeRoom.id)]);
+        setCurrentRoom(completeRoom);
+        setCurrentScreen('roomWaiting');
+        return;
+      }
+    } catch (e) {}
+
+    // Fallback garantizado
+    setRooms(prev => [newRoom, ...prev]);
+    setCurrentRoom(newRoom);
+    setCurrentScreen('roomWaiting');
+  };
+
+
+
 
   const handleChangeTeam = (teamId: number) => {
     if (!currentUser || !currentRoom) return;
@@ -185,21 +397,27 @@ export default function App() {
     })();
   };
 
-  const handleStartGame = () => {
-    if (!currentRoom) return;
+  const handleStartGame = (initialCards?: any[]) => {
+    if (initialCards) {
+      setMultiplayerInitialCards(initialCards);
+    }
+    if (!currentRoom) {
+      setCurrentScreen('multiplayerGame');
+      return;
+    }
     (async () => {
       try {
         const res = await fetch(`${API_BASE}/api/rooms/${currentRoom.id}/start`, {
           method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ hostId: currentRoom.creatorId, cards: initialCards || [] }),
         });
         if (res.ok) {
           const updated = await res.json() as Room;
           setRooms(prev => prev.map(r => r.id === updated.id ? updated : r));
-          setCurrentScreen('multiplayerGame');
-          return;
         }
       } catch (err) {
-        console.error('Error starting game', err);
+        console.error('Error starting game on backend REST', err);
       }
 
       const updatedRoom = { ...currentRoom, isStarted: true };
@@ -271,66 +489,111 @@ export default function App() {
       )}
 
       {currentScreen === 'lobby' && currentUser && (
-        <LobbyScreen 
+        <LobbyScreen
           onStartMode={(mode) => {
             if (mode === 'classic') {
-              setPostLoadingScreen('classicLevelSelect');
+              setCurrentScreen('classicLevelSelect');
             } else if (mode === 'infinite') {
-              setPostLoadingScreen('infinite');
+              setCurrentScreen('infinite');
             } else if (mode === 'challenge') {
-              setPostLoadingScreen('challenge');
+              setCurrentScreen('challenge');
             } else if (mode === 'boss') {
-              setPostLoadingScreen('boss-select');
+              setCurrentScreen('boss-select');
             } else if (mode === 'ai-friends') {
-              setPostLoadingScreen('ai-room-lobby');
+              setCurrentScreen('ai-room-lobby');
             } else if (mode === 'profile') {
               setCurrentScreen('profile');
-              return;
             } else if (mode === 'ranked') {
               setCurrentScreen('ranked');
-              return;
             } else if (mode === 'tienda') {
               setCurrentScreen('tienda');
-              return;
+            } else if (mode === 'collection') {
+              setCurrentScreen('collection');
+            } else if (mode === 'ai-room-lobby') {
+              setCurrentScreen('ai-room-lobby');
             } else if (mode === 'admin') {
               setCurrentScreen('admin');
-              return;
             } else {
-              setPostLoadingScreen('lobby');
+              setCurrentScreen('lobby');
             }
-            setCurrentScreen('loading');
           }}
           onLogout={handleLogout}
           userRole={currentUser.role}
+
           userId={currentUser.id}
+          rooms={rooms}
+          onCreateRoom={handleCreateRoom}
+          onJoinRoom={handleJoinRoom}
         />
       )}
 
-      {currentScreen === 'roomWaiting' && currentRoom && currentUser && (
+
+      {currentScreen === 'roomWaiting' && (
         <RoomWaiting
-          room={currentRoom}
-          currentUser={currentUser}
+          room={currentRoom || {
+            id: 'room_duel',
+            name: 'DUELO 1 VS 1',
+            code: 'DUEL01',
+            players: [currentUser || { id: 'p1', email: 'Jugador 👑', teamId: 1, role: 'player' }],
+            maxPlayers: 2,
+            isStarted: false,
+            currentRound: 1,
+            currentTeam: 1,
+            creatorId: currentUser?.id || 'p1',
+            gameMode: 'triads',
+            cardCount: 12
+          }}
+          currentUser={currentUser || { id: 'p1', email: 'Jugador 👑', teamId: 1, role: 'player' }}
           onStartGame={handleStartGame}
           onChangeTeam={handleChangeTeam}
           onBackToLobby={handleBackToLobby}
         />
       )}
 
-      {currentScreen === 'multiplayerGame' && currentRoom && currentUser && (
+      {currentScreen === 'multiplayerGame' && (
         <MultiplayerGame
-          room={currentRoom}
-          currentUser={currentUser}
+          room={currentRoom || {
+            id: 'room_duel',
+            name: 'DUELO 1 VS 1',
+            code: 'DUEL01',
+            players: [
+              currentUser || { id: 'p1', email: 'Jugador 1 👑', teamId: 1, role: 'player' },
+              { id: 'bot_1', email: 'Rival Bot 🤖', teamId: 2, role: 'player' }
+            ],
+            maxPlayers: 2,
+            isStarted: true,
+            currentRound: 1,
+            currentTeam: 1,
+            creatorId: currentUser?.id || 'p1',
+            gameMode: 'triads',
+            cardCount: 12
+          }}
+          currentUser={currentUser || { id: 'p1', email: 'Jugador 1 👑', teamId: 1, role: 'player' }}
+          initialCards={multiplayerInitialCards}
           onGameEnd={handleGameEnd}
           onBackToLobby={handleBackToLobby}
         />
       )}
 
-      {currentScreen === 'finalResults' && currentRoom && (
+      {currentScreen === 'finalResults' && (
         <FinalResults
-          room={currentRoom}
+          room={currentRoom || {
+            id: 'room_duel',
+            name: 'DUELO 1 VS 1',
+            code: 'DUEL01',
+            players: [currentUser || { id: 'p1', email: 'Jugador 👑', teamId: 1, role: 'player' }],
+            maxPlayers: 2,
+            isStarted: false,
+            currentRound: 1,
+            currentTeam: 1,
+            creatorId: currentUser?.id || 'p1',
+            gameMode: 'triads',
+            cardCount: 12
+          }}
           onBackToLobby={handleBackToLobby}
         />
       )}
+
       
       
       {currentScreen === 'game' && selectedUniverse && (
@@ -393,8 +656,7 @@ export default function App() {
         <ClassicLevelSelect
           onSelectLevel={(level) => {
             setClassicLevel(level);
-            setPostLoadingScreen('classic');
-            setCurrentScreen('loading');
+            setCurrentScreen('classic');
           }}
           onBack={() => setCurrentScreen('lobby')}
         />
@@ -438,8 +700,12 @@ export default function App() {
           onStartGame={() => {
             setCurrentScreen('ai-friends');
           }}
+          onCreateRealRoom={handleCreateRoom}
+          onJoinRealRoom={handleJoinRoom}
+          realRooms={rooms}
         />
       )}
+
 
       {currentScreen === 'ai-room-waiting' && (
         <AIRoomWaiting 
@@ -462,6 +728,10 @@ export default function App() {
         <TiendaScreen onBack={() => setCurrentScreen('lobby')} userId={currentUser?.id} />
       )}
 
+      {currentScreen === 'collection' && (
+        <CollectionScreen onBack={() => setCurrentScreen('lobby')} />
+      )}
+
       {currentScreen === 'admin' && currentUser && (
         <AdminPanel 
           onBack={() => setCurrentScreen('lobby')} 
@@ -471,3 +741,5 @@ export default function App() {
     </div>
   );
 }
+
+

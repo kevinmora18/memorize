@@ -10,7 +10,11 @@ import {
   Volume2,
   VolumeX,
 } from "lucide-react";
+import { MemoryCard } from "./MemoryCard";
+import { getEquippedPackCards } from "../lib/shopSystem";
+import { soundSystem } from "../lib/soundSystem";
 import type { Universe } from '../App';
+
 
 type BossType = 'conexiones' | 'caos' | 'congelante' | 'ilusion' | 'neural' | 'parasito';
 
@@ -103,9 +107,12 @@ export function BossFight({ universe, bossType, onBossDefeated, onBackToMenu }: 
 
   const initializeGame = () => {
     const pairCount = 8;
-    const selectedSymbols = boss.symbols.slice(0, pairCount);
+    const equipped = getEquippedPackCards();
+    const sourceSymbols = equipped && equipped.length >= pairCount ? equipped : boss.symbols;
+    const selectedSymbols = sourceSymbols.slice(0, pairCount);
     const gameSymbols = [...selectedSymbols, ...selectedSymbols];
     const shuffled = gameSymbols
+
       .sort(() => Math.random() - 0.5)
       .map((symbol, index) => ({
         id: index,
@@ -407,31 +414,19 @@ export function BossFight({ universe, bossType, onBossDefeated, onBackToMenu }: 
         </div>
 
         {/* Game Board */}
-        <div className="flex-1 flex flex-col items-center justify-center">
-          <div className="grid grid-cols-4 gap-4 mb-8">
+        <div className="flex-1 flex flex-col items-center justify-center w-full max-w-xl">
+          <div className="grid grid-cols-4 gap-3 sm:gap-4 mb-6 w-full">
             {cards.map((card, index) => (
-              <motion.div
+              <MemoryCard
                 key={card.id}
-                className={`w-20 h-20 rounded-xl cursor-pointer flex items-center justify-center text-4xl transition-all ${
-                  card.isMatched
-                    ? 'bg-green-500/20 border-2 border-green-400'
-                    : card.isFlipped
-                    ? `bg-gradient-to-br ${boss.gradient} border-2 border-white/30`
-                    : card.isFrozen
-                    ? 'bg-blue-500/30 border-2 border-blue-400'
-                    : 'bg-gray-800/50 border-2 border-gray-700 hover:border-gray-600'
-                }`}
+                card={card}
+                index={index}
+                glowColor={boss.glowColor}
                 onClick={() => handleCardClick(index)}
-                whileHover={!card.isFlipped && !card.isMatched && !card.isFrozen ? { scale: 1.05 } : {}}
-                whileTap={!card.isFlipped && !card.isMatched && !card.isFrozen ? { scale: 0.95 } : {}}
-                animate={card.isFrozen ? { opacity: [0.5, 1, 0.5] } : {}}
-                transition={{ duration: 1, repeat: card.isFrozen ? Infinity : 0 }}
-              >
-                {card.isFrozen && <Snowflake className="w-6 h-6 text-blue-400" />}
-                {card.isFlipped || card.isMatched ? card.symbol : '?'}
-              </motion.div>
+              />
             ))}
           </div>
+
 
           {/* Stats */}
           <div className="grid grid-cols-4 gap-4 w-full max-w-md">

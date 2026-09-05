@@ -66,41 +66,38 @@ export class RoomController {
    */
   createRoom = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const { name, hostId, maxPlayers, mode, difficulty, isPrivate, password } = req.body;
+      const { name, hostId, creator, maxPlayers, mode, difficulty, isPrivate, password } = req.body;
+      const actualHostId = hostId || creator?.id || `user_${Date.now()}`;
+      const actualName = name || `Sala de ${creator?.email?.split('@')[0] || 'Jugador'}`;
 
-      // Validaciones
-      if (!name || !hostId) {
-        res.status(400).json({ error: 'Datos incompletos' });
-        return;
+      // Buscar usuario en base de datos si existe, o usar datos de sesión
+      let user = null;
+      try {
+        user = await this.userRepository.findById(actualHostId);
+      } catch (err) {
+        // Fallback si no está en BD
       }
 
-      if (maxPlayers < 2 || maxPlayers > 8) {
-        res.status(400).json({ error: 'Número de jugadores debe estar entre 2 y 8' });
-        return;
-      }
-
-      // Verificar que el usuario existe
-      const user = await this.userRepository.findById(hostId);
-
-      if (!user) {
-        res.status(404).json({ error: 'Usuario no encontrado' });
-        return;
-      }
+      const hostName = user?.username || user?.email || creator?.email || 'Jugador';
+      const hostLevel = user?.level || 1;
 
       // Crear sala
       const room = this.roomManager.createRoom({
-        name,
-        hostId,
-        hostName: user.username || user.email,
-        hostLevel: user.level,
-        maxPlayers: maxPlayers || 4,
-        mode: mode || 'classic',
+        name: actualName,
+        code: req.body.code,
+        hostId: actualHostId,
+        hostName,
+        hostLevel,
+        maxPlayers: maxPlayers && maxPlayers >= 2 && maxPlayers <= 8 ? maxPlayers : 2,
+        mode: mode || 'triads',
+        cardCount: req.body.cardCount || 12,
         difficulty: difficulty || 'normal',
         isPrivate: isPrivate || false,
         password: isPrivate ? password : undefined,
       });
 
       res.json(room.toJSON());
+
     } catch (error) {
       next(error);
     }
@@ -113,30 +110,27 @@ export class RoomController {
   joinRoom = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const roomId = req.params.roomId as string;
-      const { userId, password } = req.body;
+      const { userId, player, password } = req.body;
+      const actualUserId = userId || player?.id || `user_${Date.now()}`;
 
-      // Validaciones
-      if (!userId) {
-        res.status(400).json({ error: 'Datos incompletos' });
-        return;
+      let user = null;
+      try {
+        user = await this.userRepository.findById(actualUserId);
+      } catch (err) {
+        // Fallback
       }
 
-      // Verificar que el usuario existe
-      const user = await this.userRepository.findById(userId);
-
-      if (!user) {
-        res.status(404).json({ error: 'Usuario no encontrado' });
-        return;
-      }
+      const userName = user?.username || user?.email || player?.email || 'Jugador';
+      const userLevel = user?.level || 1;
 
       // Unirse a la sala
       const room = this.roomManager.joinRoom(
         roomId,
         {
-          id: userId,
+          id: actualUserId,
           socketId: '', // Se actualizará por socket
-          name: user.username || user.email,
-          level: user.level,
+          name: userName,
+          level: userLevel,
           isReady: false,
           score: 0,
           matches: 0,
@@ -147,17 +141,18 @@ export class RoomController {
 
       res.json(room.toJSON());
     } catch (error: any) {
-      if (error.message.includes('no encontrada')) {
+      if (error.message && error.message.includes('no encontrada')) {
         res.status(404).json({ error: error.message });
-      } else if (error.message.includes('Contraseña')) {
+      } else if (error.message && error.message.includes('Contraseña')) {
         res.status(403).json({ error: error.message });
-      } else if (error.message.includes('llena') || error.message.includes('ya está')) {
+      } else if (error.message && (error.message.includes('llena') || error.message.includes('ya está'))) {
         res.status(400).json({ error: error.message });
       } else {
         next(error);
       }
     }
   };
+
 
   /**
    * POST /api/rooms/:roomId/leave
