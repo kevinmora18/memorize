@@ -4,11 +4,11 @@ FROM node:20-alpine AS build
 WORKDIR /app
 
 # Instalar dependencias primero (cache layer)
-COPY package*.json ./
+COPY frontend/package*.json ./
 RUN npm ci
 
 # Copiar código fuente y compilar
-COPY . .
+COPY frontend/ ./
 
 # En producción, la API y Socket.IO van por Nginx (ruta relativa /api)
 ENV VITE_API_BASE=""

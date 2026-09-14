@@ -26,6 +26,7 @@ import { ParejasConexiones } from './components/ParejasConexiones';
 import { TriadasConexiones } from './components/TriadasConexiones';
 import { loadPlayerStats, savePlayerStats, addXP } from './lib/playerEvolution';
 import socket from './lib/socket';
+import { API_BASE, setToken, saveUser, clearSession, getToken, loadUser, apiGet } from './lib/api';
 
 export type Universe = 'volcania' | 'frostheim' | 'neural' | 'verdalis' | 'lunaris';
 export type BossType = 'naturaleza' | 'ciencia' | 'humano' | 'ecosistema' | 'tecnologia';
@@ -61,8 +62,6 @@ export type Room = {
 
 
 export default function App() {
-  const API_BASE = '';
-
 
   const [currentScreen, setCurrentScreen] = useState<GameScreen>('login');
   const [currentUser, setCurrentUser] = useState<Player | null>(null);
@@ -74,6 +73,18 @@ export default function App() {
   const [rooms, setRooms] = useState<Room[]>([]);
 
   const [multiplayerInitialCards, setMultiplayerInitialCards] = useState<any[] | null>(null);
+
+  // Restaurar sesión persistida al cargar la app
+  useEffect(() => {
+    const token = getToken();
+    const savedUser = loadUser() as Player | null;
+
+    if (token && savedUser) {
+      setCurrentUser({ ...savedUser, teamId: savedUser.teamId || 0 });
+      setCurrentScreen('lobby');
+      socket.connect();
+    }
+  }, []);
 
   useEffect(() => {
     socket.on('rooms:update', (data: Room[]) => setRooms(data));
@@ -90,6 +101,10 @@ export default function App() {
         setMultiplayerInitialCards(payload.cards);
       }
       setCurrentScreen('multiplayerGame');
+    });
+    socket.on('connect_error', (err: any) => {
+      // Si el token es inválido, la sesión del socket fallará; reintenta en lobby
+      console.warn('Socket connect_error:', err?.message);
     });
 
     const fetchRooms = async () => {
@@ -113,6 +128,7 @@ export default function App() {
       socket.off('player:joined');
       socket.off('room:started');
       socket.off('game:started');
+      socket.off('connect_error');
     };
   }, []);
 
@@ -128,44 +144,27 @@ export default function App() {
     }
   }, [rooms]);
 
-  const handleLoginSuccess = (email: string) => {
-    const player: Player = { 
-      id: `user_${Date.now()}`, 
-      email: email || 'jugador@memorize.com', 
+  const handleLoginSuccess = (userData: any, token: string) => {
+    setToken(token);
+    saveUser(userData);
+
+    const player: Player = {
+      id: userData.id,
+      email: userData.email,
       teamId: 0,
-      role: 'player',
-      level: 1,
-      xp: 0,
-      coins: 1500,
-      gems: 80
+      role: userData.role || 'player',
+      level: userData.level || 1,
+      xp: userData.xp || 0,
+      coins: userData.coins || 1500,
+      gems: userData.gems || 80,
     };
     setCurrentUser(player);
     setCurrentScreen('lobby');
 
-    // Sincronizar en background si el backend responde
-    (async () => {
-      try {
-        const res = await fetch(`${API_BASE}/api/auth/login`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: email || 'jugador@memorize.com' }),
-        });
-        if (res.ok) {
-          const userData = await res.json();
-          setCurrentUser(prev => ({
-            ...(prev || player),
-            id: userData.id || player.id,
-            role: userData.role || 'player',
-            level: userData.level || 1,
-            xp: userData.xp || 0,
-            coins: userData.coins || 1500,
-            gems: userData.gems || 80,
-          }));
-        }
-      } catch (err) {
-        console.error('Login background sync error:', err);
-      }
-    })();
+    // Reconectar Socket.IO con la sesión autenticada
+    if (!socket.connected) {
+      socket.connect();
+    }
   };
 
 
@@ -443,6 +442,8 @@ export default function App() {
   };
 
   const handleLogout = () => {
+    clearSession();
+    socket.disconnect();
     setCurrentUser(null);
     setCurrentRoom(null);
     setCurrentScreen('login');

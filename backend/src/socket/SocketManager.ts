@@ -1,31 +1,33 @@
 import { Server, Socket } from 'socket.io';
-import { RoomManager } from '../managers/RoomManager';
+import { IRoomManager } from '../core/interfaces/IServices';
+import { verifyToken, AuthTokenPayload } from '../core/JwtUtil';
 
 /**
  * SocketManager - Gestor de conexiones Socket.IO con POO
- * 
- * EXPLICACIÓN POO:
- * - ENCAPSULACIÓN: Agrupa toda la lógica de sockets
- * - SRP: Solo maneja eventos de socket
- * - DEPENDENCY INJECTION: Recibe RoomManager como dependencia
+ *
+ * EXPLICACIÓN POO Y SOLID:
+ * - ENCAPSULACIÓN: Agrupa toda la lógica y eventos de sockets en un componente autocontenido
+ * - SRP: Exclusivamente responsable de la comunicación bidireccional en tiempo real
+ * - DIP (Dependency Inversion Principle): Depende de la interfaz IRoomManager, no de la clase concreta
+ * - SEGURIDAD: La identidad del jugador proviene del JWT (handshake), nunca del payload del cliente
  */
 export class SocketManager {
   private io: Server;
-  private roomManager: RoomManager;
+  private roomManager: IRoomManager;
+  private socketRooms: Map<string, { roomId: string; userId: string }>;
 
-  constructor(io: Server, roomManager: RoomManager) {
+  constructor(io: Server, roomManager: IRoomManager) {
     this.io = io;
     this.roomManager = roomManager;
+    this.socketRooms = new Map();
   }
 
-  /**
-   * Inicializar todos los handlers de socket
-   */
   initialize(): void {
-    this.io.on('connection', (socket: Socket) => {
-      this.log(`Usuario conectado: ${socket.id}`);
+    this.io.use(this.authenticateHandshake.bind(this));
 
-      // Registrar todos los eventos
+    this.io.on('connection', (socket: Socket) => {
+      this.log(`Usuario conectado: ${socket.id} -> ${socket.data.userId}`);
+
       this.registerRoomEvents(socket);
       this.registerGameEvents(socket);
       this.registerChatEvents(socket);
@@ -36,30 +38,61 @@ export class SocketManager {
   }
 
   /**
-   * Registrar eventos de sala
+   * Middleware de autenticación: verifica el token JWT del handshake
+   * y adjunta la identidad autenticada a socket.data
    */
+  private authenticateHandshake(socket: Socket, next: (err?: Error) => void): void {
+    try {
+      const token = socket.handshake.auth?.token as string | undefined;
+
+      if (!token) {
+        next(new Error('Autenticación requerida'));
+        return;
+      }
+
+      const payload: AuthTokenPayload | null = verifyToken(token);
+      if (!payload) {
+        next(new Error('Token inválido o expirado'));
+        return;
+      }
+
+      socket.data.userId = payload.userId;
+      socket.data.userName = payload.username || payload.userId;
+      next();
+    } catch (error: any) {
+      this.logError('authenticateHandshake', error);
+      next(new Error('Error de autenticación'));
+    }
+  }
+
   private registerRoomEvents(socket: Socket): void {
-    // Unirse a una sala
-    socket.on('room:join', async ({ roomId, userId, userName, userLevel }) => {
+    socket.on('room:join', async ({ roomId, userLevel, password }) => {
       try {
+        const userId = socket.data.userId as string;
+        const userName = socket.data.userName as string;
+
         const room = this.roomManager.getRoom(roomId);
-        
+
         if (!room) {
           socket.emit('room:error', { message: 'Sala no encontrada' });
           return;
         }
 
+        if (room.isPrivate && !room.validatePassword(password || '')) {
+          socket.emit('room:error', { message: 'Contraseña incorrecta' });
+          return;
+        }
+
         socket.join(roomId);
 
-        // Si el jugador ya existe, actualizar socket
         if (room.hasPlayer(userId)) {
           room.reconnectPlayer(userId, socket.id);
         } else {
-          room.addPlayer({
+          this.roomManager.joinRoom(roomId, {
             id: userId,
             socketId: socket.id,
             name: userName,
-            level: userLevel,
+            level: userLevel || 1,
             isReady: false,
             score: 0,
             matches: 0,
@@ -67,13 +100,13 @@ export class SocketManager {
           });
         }
 
-        // Notificar a todos
+        this.socketRooms.set(socket.id, { roomId, userId });
+
         this.io.to(roomId).emit('room:player-joined', {
           player: room.getPlayer(userId)?.toJSON(),
           players: room.getPlayers().map(p => p.toJSON()),
         });
 
-        // Enviar estado actual al jugador
         socket.emit('room:joined', {
           roomId,
           players: room.getPlayers().map(p => p.toJSON()),
@@ -88,25 +121,22 @@ export class SocketManager {
       }
     });
 
-    // Salir de una sala
-    socket.on('room:leave', ({ roomId, userId }) => {
+    socket.on('room:leave', ({ roomId }) => {
       try {
+        const userId = socket.data.userId as string;
         const room = this.roomManager.getRoom(roomId);
         if (!room) return;
 
         const player = room.getPlayer(userId);
-        room.removePlayer(userId);
+        this.roomManager.leaveRoom(roomId, userId);
         socket.leave(roomId);
+        this.socketRooms.delete(socket.id);
 
         this.io.to(roomId).emit('room:player-left', {
           playerId: userId,
           playerName: player?.name,
           players: room.getPlayers().map(p => p.toJSON()),
         });
-
-        if (room.isEmpty()) {
-          this.roomManager.deleteRoom(roomId);
-        }
 
         this.broadcastRoomsUpdate();
         this.log(`${player?.name} salió de la sala ${roomId}`);
@@ -115,9 +145,9 @@ export class SocketManager {
       }
     });
 
-    // Marcar como listo
-    socket.on('room:ready', ({ roomId, userId, isReady }) => {
+    socket.on('room:ready', ({ roomId, isReady }) => {
       try {
+        const userId = socket.data.userId as string;
         const room = this.roomManager.getRoom(roomId);
         if (!room) return;
 
@@ -137,18 +167,20 @@ export class SocketManager {
     });
   }
 
-  /**
-   * Registrar eventos de juego
-   */
   private registerGameEvents(socket: Socket): void {
-    // Iniciar partida
     socket.on('game:start', ({ roomId, cards, mode }) => {
       try {
+        const userId = socket.data.userId as string;
         const room = this.roomManager.getRoom(roomId);
         if (!room) return;
 
         if (mode) {
           room.mode = mode;
+        }
+
+        if (room.hostId !== userId) {
+          socket.emit('game:error', { message: 'Solo el host puede iniciar la partida' });
+          return;
         }
 
         room.startGame(cards, true);
@@ -168,9 +200,9 @@ export class SocketManager {
       }
     });
 
-    // Voltear carta
-    socket.on('game:flip-card', ({ roomId, userId, cardIndex }) => {
+    socket.on('game:flip-card', ({ roomId, cardIndex }) => {
       try {
+        const userId = socket.data.userId as string;
         const room = this.roomManager.getRoom(roomId);
         if (!room) return;
 
@@ -182,7 +214,6 @@ export class SocketManager {
           flippedCards: room.getGameState().flippedCards,
         });
 
-        // Si se voltearon todas las cartas requeridas (2 para parejas, 3 para tríadas)
         const required = room.getRequiredFlipsCount();
         if (room.getGameState().flippedCards.length === required) {
           setTimeout(() => {
@@ -195,9 +226,9 @@ export class SocketManager {
       }
     });
 
-    // Pasar turno por tiempo
-    socket.on('game:pass-turn', ({ roomId, userId }) => {
+    socket.on('game:pass-turn', ({ roomId }) => {
       try {
+        const userId = socket.data.userId as string;
         const room = this.roomManager.getRoom(roomId);
         if (!room) return;
 
@@ -213,9 +244,10 @@ export class SocketManager {
       }
     });
 
-    // Enviar Emote en vivo
-    socket.on('game:emote', ({ roomId, userId, userName, emote }) => {
+    socket.on('game:emote', ({ roomId, emote }) => {
       try {
+        const userId = socket.data.userId as string;
+        const userName = socket.data.userName as string;
         this.io.to(roomId).emit('game:emote-received', {
           userId,
           userName,
@@ -227,9 +259,10 @@ export class SocketManager {
       }
     });
 
-    // Petición de revancha
-    socket.on('game:rematch-request', ({ roomId, userId, userName }) => {
+    socket.on('game:rematch-request', ({ roomId }) => {
       try {
+        const userId = socket.data.userId as string;
+        const userName = socket.data.userName as string;
         this.io.to(roomId).emit('game:rematch-requested', {
           userId,
           userName,
@@ -239,21 +272,21 @@ export class SocketManager {
       }
     });
 
-    // Actualizar puntuación
-    socket.on('game:update-score', ({ roomId, userId, score, matches }) => {
+    socket.on('game:update-score', ({ roomId, score, matches }) => {
       try {
+        const userId = socket.data.userId as string;
         const room = this.roomManager.getRoom(roomId);
         if (!room) return;
 
         const player = room.getPlayer(userId);
         if (player) {
-          player.score = score;
-          player.matches = matches;
+          player.score = Math.min(score || 0, 999999);
+          player.matches = Math.min(matches || 0, 999);
 
           this.io.to(roomId).emit('game:score-updated', {
             playerId: userId,
-            score,
-            matches,
+            score: player.score,
+            matches: player.matches,
             players: room.getPlayers().map(p => p.toJSON()),
           });
         }
@@ -263,9 +296,6 @@ export class SocketManager {
     });
   }
 
-  /**
-   * Verificar match de cartas
-   */
   private checkMatch(roomId: string, userId: string): void {
     try {
       const room = this.roomManager.getRoom(roomId);
@@ -274,7 +304,6 @@ export class SocketManager {
       const { isMatch, cardIndexes } = room.checkMatch();
 
       if (isMatch) {
-        // Match encontrado
         room.registerMatch(userId, cardIndexes);
 
         this.io.to(roomId).emit('game:match-found', {
@@ -285,7 +314,6 @@ export class SocketManager {
           players: room.getPlayers().map(p => p.toJSON()),
         });
 
-        // Verificar si el juego terminó
         if (room.isGameFinished()) {
           const winnerId = room.finishGame();
 
@@ -299,20 +327,16 @@ export class SocketManager {
           this.log(`Partida terminada en sala ${roomId}. Ganador: ${winnerId}`);
         }
       } else {
-        // No hay match
         this.io.to(roomId).emit('game:no-match', {
           cardIndexes,
         });
 
-        // Cambiar turno
         const nextTurn = room.nextTurn();
-
         this.io.to(roomId).emit('game:turn-changed', {
           currentTurn: nextTurn,
         });
       }
 
-      // Limpiar cartas volteadas
       room.clearFlippedCards();
     } catch (error: any) {
       this.logError('checkMatch', error);
@@ -328,12 +352,12 @@ export class SocketManager {
     }
   }
 
-  /**
-   * Registrar eventos de chat
-   */
   private registerChatEvents(socket: Socket): void {
-    socket.on('chat:message', ({ roomId, userId, userName, message }) => {
+    socket.on('chat:message', ({ roomId, message }) => {
       try {
+        const userId = socket.data.userId as string;
+        const userName = socket.data.userName as string;
+
         this.io.to(roomId).emit('chat:message', {
           userId,
           userName,
@@ -346,26 +370,51 @@ export class SocketManager {
     });
   }
 
-  /**
-   * Registrar eventos de conexión/desconexión
-   */
   private registerConnectionEvents(socket: Socket): void {
-    // Desconexión
     socket.on('disconnect', () => {
       this.log(`Usuario desconectado: ${socket.id}`);
 
-      // Buscar en qué sala estaba
-      // (implementación similar a handlers.ts original)
+      const membership = this.socketRooms.get(socket.id);
+      if (membership) {
+        const { roomId, userId } = membership;
+        const room = this.roomManager.getRoom(roomId);
+
+        if (room) {
+          room.disconnectPlayer(userId);
+          this.io.to(roomId).emit('room:player-disconnected', {
+            playerId: userId,
+            players: room.getPlayers().map(p => p.toJSON()),
+          });
+
+          // Si todos los demás jugadores no están conectados y hay un solo jugador restante, limpiar
+          const connectedPlayers = room.getPlayers().filter(p => p.isConnected);
+          if (connectedPlayers.length === 0) {
+            this.roomManager.leaveRoom(roomId, userId);
+            room.getPlayers().forEach(p => this.roomManager.leaveRoom(roomId, p.id));
+          }
+
+          // Reasignar host si el host se desconectó
+          if (room.hostId === userId && room.getPlayerCount() > 0) {
+            const newHost = room.getPlayers().find(p => p.isConnected) || room.getPlayers()[0];
+            this.io.to(roomId).emit('room:host-changed', { newHostId: newHost.id });
+          }
+        }
+
+        this.socketRooms.delete(socket.id);
+      }
+
+      this.broadcastRoomsUpdate();
     });
 
-    // Reconexión
-    socket.on('room:reconnect', ({ roomId, userId }) => {
+    socket.on('room:reconnect', ({ roomId }) => {
       try {
+        const userId = socket.data.userId as string;
         const room = this.roomManager.getRoom(roomId);
         if (!room) return;
 
         room.reconnectPlayer(userId, socket.id);
         socket.join(roomId);
+        this.socketRooms.set(socket.id, { roomId, userId });
 
         this.io.to(roomId).emit('room:player-reconnected', {
           playerId: userId,
@@ -384,9 +433,6 @@ export class SocketManager {
     });
   }
 
-  /**
-   * Logging
-   */
   private log(message: string): void {
     console.log(`[SocketManager] ${message}`);
   }

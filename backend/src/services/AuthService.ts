@@ -1,58 +1,76 @@
+import bcrypt from 'bcryptjs';
 import { BaseService } from '../core/BaseService';
-import { UserRepository } from '../repositories/UserRepository';
+import { IUserRepository } from '../core/interfaces/IRepository';
+import { IAuthService } from '../core/interfaces/IServices';
 import { User } from '../models/domain/User.model';
+import { signToken } from '../core/JwtUtil';
 
 /**
- * AuthService - Servicio de autenticación
- * 
- * EXPLICACIÓN POO:
+ * AuthService - Servicio de autenticación con JWT y contraseñas hasheadas
+ *
+ * EXPLICACIÓN POO Y SOLID:
  * - HERENCIA: Extiende BaseService
- * - SRP: Solo maneja lógica de autenticación
- * - DEPENDENCY INJECTION: Recibe el repositorio como dependencia
- * - ENCAPSULACIÓN: Oculta la lógica de negocio de autenticación
+ * - DIP: Depende de la abstracción IUserRepository, no de una clase concreta
+ * - ISP: Implementa la interfaz específica IAuthService
+ * - SRP: Solo maneja lógica de autenticación, registro y validación de acceso
  */
-export class AuthService extends BaseService {
-  private userRepository: UserRepository;
+export class AuthService extends BaseService implements IAuthService {
+  private userRepository: IUserRepository;
 
-  constructor(userRepository: UserRepository) {
+  constructor(userRepository: IUserRepository) {
     super('AuthService');
     this.userRepository = userRepository;
   }
 
-  /**
-   * Implementación del método abstracto
-   */
   async initialize(): Promise<void> {
     this.log('Servicio de autenticación inicializado');
   }
 
-  /**
-   * Login o registro automático
-   */
-  async loginOrRegister(email: string): Promise<User> {
+  async register(email: string, password: string, username?: string): Promise<User> {
     try {
-      this.log(`Intentando login/registro para: ${email}`);
+      this.log(`Registrando usuario: ${email}`);
 
-      // Validar email
-      if (!email || !email.includes('@')) {
+      if (!email || !email.includes('@') || email.includes(' ')) {
         throw new Error('Email inválido');
       }
 
-      // Buscar usuario existente
-      let user = await this.userRepository.findByEmail(email);
-
-      if (!user) {
-        // Crear nuevo usuario
-        this.log(`Usuario no existe, creando: ${email}`);
-        user = await this.userRepository.create({ email });
-
-        // Aquí podríamos crear stats e inventory por defecto
-        this.log(`Usuario creado exitosamente: ${user.id}`);
-      } else {
-        this.log(`Usuario encontrado: ${user.id}`);
+      if (!password || password.length < 6) {
+        throw new Error('La contraseña debe tener al menos 6 caracteres');
       }
 
-      // Verificar si está baneado
+      const existing = await this.userRepository.findByEmail(email);
+      if (existing) {
+        throw new Error('Ya existe una cuenta con este email');
+      }
+
+      const passwordHash = await bcrypt.hash(password, 10);
+
+      const user = await this.userRepository.create({
+        email,
+        username: username || email.split('@')[0],
+        passwordHash,
+      });
+      this.log(`Usuario registrado: ${user.id}`);
+      return user;
+    } catch (error: any) {
+      this.handleError(error, 'register');
+    }
+  }
+
+  async login(email: string, password: string): Promise<{ user: User; token: string }> {
+    try {
+      this.log(`Intentando login para: ${email}`);
+
+      const user = await this.userRepository.findByEmail(email);
+      if (!user || !user.hasPassword()) {
+        throw new Error('Credenciales inválidas');
+      }
+
+      const valid = await bcrypt.compare(password, user.passwordHash || '');
+      if (!valid) {
+        throw new Error('Credenciales inválidas');
+      }
+
       if (user.isCurrentlyBanned()) {
         const message = user.bannedUntil
           ? `Usuario baneado hasta ${user.bannedUntil}`
@@ -60,26 +78,24 @@ export class AuthService extends BaseService {
         throw new Error(message);
       }
 
-      // Actualizar última conexión
       await this.userRepository.updateLastLogin(user.id);
 
-      return user;
+      const token = signToken({
+        userId: user.id,
+        role: user.role,
+        username: user.username,
+      });
+
+      return { user, token };
     } catch (error: any) {
-      this.handleError(error, 'loginOrRegister');
+      this.handleError(error, 'login');
     }
   }
 
-  /**
-   * Validar si un usuario puede acceder
-   */
   async validateAccess(userId: string): Promise<boolean> {
     try {
       const user = await this.userRepository.findById(userId);
-      
-      if (!user) {
-        return false;
-      }
-
+      if (!user) return false;
       return !user.isCurrentlyBanned();
     } catch (error: any) {
       this.log(`Error validando acceso: ${error.message}`, 'error');
@@ -87,9 +103,6 @@ export class AuthService extends BaseService {
     }
   }
 
-  /**
-   * Verificar si un usuario es admin
-   */
   async isAdmin(userId: string): Promise<boolean> {
     try {
       const user = await this.userRepository.findById(userId);

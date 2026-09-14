@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Users, Trophy, BarChart3, Trash2, Shield, Coins, Gem, Ban, Megaphone, TrendingUp, Gift } from 'lucide-react';
+import { API_BASE, getToken } from '../lib/api';
 
 interface AdminPanelProps {
   onBack: () => void;
@@ -85,7 +86,6 @@ interface Analytics {
 }
 
 export function AdminPanel({ onBack, currentUserId }: AdminPanelProps) {
-  const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:5175';
   const [activeTab, setActiveTab] = useState<'stats' | 'users' | 'matches' | 'bans' | 'announcements' | 'economy' | 'analytics'>('stats');
   const [users, setUsers] = useState<User[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
@@ -96,6 +96,19 @@ export function AdminPanel({ onBack, currentUserId }: AdminPanelProps) {
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // fetch con Authorization Bearer (el rol se valida en backend vía JWT)
+  const authedFetch = async (path: string, init?: RequestInit) => {
+    const token = getToken();
+    return fetch(`${API_BASE}${path}`, {
+      ...init,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(init?.headers || {}),
+      },
+    });
+  };
+
   useEffect(() => {
     loadData();
   }, [activeTab]);
@@ -104,37 +117,37 @@ export function AdminPanel({ onBack, currentUserId }: AdminPanelProps) {
     setLoading(true);
     try {
       if (activeTab === 'users') {
-        const res = await fetch(`${API_BASE}/api/admin/users`);
+        const res = await authedFetch(`${API_BASE}/api/admin/users`);
         if (res.ok) {
           const data = await res.json();
           setUsers(Array.isArray(data) ? data : (data.users || []));
         }
       } else if (activeTab === 'matches') {
-        const res = await fetch(`${API_BASE}/api/admin/matches`);
+        const res = await authedFetch(`${API_BASE}/api/admin/matches`);
         if (res.ok) {
           const data = await res.json();
           setMatches(Array.isArray(data) ? data : (data.matches || []));
         }
       } else if (activeTab === 'stats') {
-        const res = await fetch(`${API_BASE}/api/admin/stats`);
+        const res = await authedFetch(`${API_BASE}/api/admin/stats`);
         if (res.ok) setStats(await res.json());
       } else if (activeTab === 'bans') {
-        const res = await fetch(`${API_BASE}/api/admin/banned-users`);
+        const res = await authedFetch(`${API_BASE}/api/admin/banned-users`);
         if (res.ok) {
           const data = await res.json();
           setBannedUsers(Array.isArray(data) ? data : (data.users || []));
         }
       } else if (activeTab === 'announcements') {
-        const res = await fetch(`${API_BASE}/api/admin/announcements`);
+        const res = await authedFetch(`${API_BASE}/api/admin/announcements`);
         if (res.ok) {
           const data = await res.json();
           setAnnouncements(Array.isArray(data) ? data : (data.announcements || []));
         }
       } else if (activeTab === 'economy') {
-        const res = await fetch(`${API_BASE}/api/admin/promotions`);
+        const res = await authedFetch(`${API_BASE}/api/admin/promotions`);
         if (res.ok) setPromotions(await res.json());
       } else if (activeTab === 'analytics') {
-        const res = await fetch(`${API_BASE}/api/admin/analytics`);
+        const res = await authedFetch(`${API_BASE}/api/admin/analytics`);
         if (res.ok) setAnalytics(await res.json());
       }
     } catch (error) {
@@ -147,7 +160,7 @@ export function AdminPanel({ onBack, currentUserId }: AdminPanelProps) {
     if (!confirm('¿Estás seguro de eliminar este usuario?')) return;
     
     try {
-      const res = await fetch(`${API_BASE}/api/admin/users/${userId}?adminId=${currentUserId}`, {
+      const res = await authedFetch(`${API_BASE}/api/admin/users/${userId}`, {
         method: 'DELETE'
       });
       if (res.ok) {
@@ -167,10 +180,9 @@ export function AdminPanel({ onBack, currentUserId }: AdminPanelProps) {
     const newRole = currentRole === 'admin' ? 'player' : 'admin';
     
     try {
-      const res = await fetch(`${API_BASE}/api/admin/users/${userId}/role`, {
+      const res = await authedFetch(`${API_BASE}/api/admin/users/${userId}/role`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role: newRole, adminId: currentUserId })
+        body: JSON.stringify({ role: newRole })
       });
       if (res.ok) {
         alert(`Rol actualizado a ${newRole}`);
@@ -192,13 +204,11 @@ export function AdminPanel({ onBack, currentUserId }: AdminPanelProps) {
     if (coins === null && gems === null) return;
     
     try {
-      const res = await fetch(`${API_BASE}/api/admin/users/${userId}/currency`, {
+      const res = await authedFetch(`${API_BASE}/api/admin/users/${userId}/currency`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           coins: coins ? parseInt(coins) : undefined,
           gems: gems ? parseInt(gems) : undefined,
-          adminId: currentUserId
         })
       });
       if (res.ok) {
@@ -221,13 +231,11 @@ export function AdminPanel({ onBack, currentUserId }: AdminPanelProps) {
     const duration = prompt('Duración en días (dejar vacío para permanente):');
     
     try {
-      const res = await fetch(`${API_BASE}/api/admin/users/${userId}/ban`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await authedFetch(`${API_BASE}/api/admin/users/${userId}/ban`, {
+        method: 'POST',
         body: JSON.stringify({ 
           reason,
           duration: duration ? parseInt(duration) : null,
-          adminId: currentUserId
         })
       });
       if (res.ok) {
@@ -247,8 +255,8 @@ export function AdminPanel({ onBack, currentUserId }: AdminPanelProps) {
     if (!confirm('¿Desbanear este usuario?')) return;
     
     try {
-      const res = await fetch(`${API_BASE}/api/admin/users/${userId}/unban?adminId=${currentUserId}`, {
-        method: 'PUT'
+      const res = await authedFetch(`${API_BASE}/api/admin/users/${userId}/unban`, {
+        method: 'POST'
       });
       if (res.ok) {
         alert('Usuario desbaneado');
@@ -269,10 +277,9 @@ export function AdminPanel({ onBack, currentUserId }: AdminPanelProps) {
     const type = prompt('Tipo (info/warning/success/error):', 'info');
     
     try {
-      const res = await fetch(`${API_BASE}/api/admin/announcements`, {
+      const res = await authedFetch(`${API_BASE}/api/admin/announcements`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, message, type, adminId: currentUserId })
+        body: JSON.stringify({ title, message, type })
       });
       if (res.ok) {
         alert('Anuncio creado');
@@ -291,7 +298,7 @@ export function AdminPanel({ onBack, currentUserId }: AdminPanelProps) {
     if (!confirm('¿Eliminar este anuncio?')) return;
     
     try {
-      const res = await fetch(`${API_BASE}/api/admin/announcements/${id}?adminId=${currentUserId}`, {
+      const res = await authedFetch(`${API_BASE}/api/admin/announcements/${id}`, {
         method: 'DELETE'
       });
       if (res.ok) {
@@ -309,7 +316,7 @@ export function AdminPanel({ onBack, currentUserId }: AdminPanelProps) {
 
   const handleToggleAnnouncement = async (id: string) => {
     try {
-      const res = await fetch(`${API_BASE}/api/admin/announcements/${id}/toggle?adminId=${currentUserId}`, {
+      const res = await authedFetch(`${API_BASE}/api/admin/announcements/${id}/toggle`, {
         method: 'PUT'
       });
       if (res.ok) {
@@ -333,13 +340,11 @@ export function AdminPanel({ onBack, currentUserId }: AdminPanelProps) {
     if (!confirm(`¿Regalar ${coins || 0} monedas y ${gems || 0} gemas a TODOS los usuarios?`)) return;
     
     try {
-      const res = await fetch(`${API_BASE}/api/admin/give-currency-all`, {
+      const res = await authedFetch(`${API_BASE}/api/admin/give-currency-all`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           coins: coins ? parseInt(coins) : undefined,
           gems: gems ? parseInt(gems) : undefined,
-          adminId: currentUserId
         })
       });
       if (res.ok) {

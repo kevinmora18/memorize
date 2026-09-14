@@ -14,10 +14,11 @@ datasource db {
 // TABLA PRINCIPAL: USUARIOS
 // ============================================
 model User {
-  id          String    @id @default(uuid())
-  email       String    @unique
-  username    String?
-  role        String    @default("player") // "player" o "admin"
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String?
+  username     String?
+  role         String    @default("player") // "player" o "admin"
   level       Int       @default(1)
   xp          Int       @default(0)
   coins       Int       @default(0)

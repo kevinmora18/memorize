@@ -1,126 +1,87 @@
 import { Request, Response, NextFunction } from 'express';
-import { UserService } from '../services/UserService';
+import { BaseController } from '../core/BaseController';
+import { IUserService } from '../core/interfaces/IServices';
 
 /**
  * UserController - Controlador para rutas de usuarios
  * 
- * EXPLICACIÓN POO:
- * - SRP: Solo maneja peticiones HTTP de usuarios
- * - DEPENDENCY INJECTION: Recibe el servicio como dependencia
- * - THIN CONTROLLERS: Delega toda la lógica al servicio
+ * EXPLICACIÓN POO Y SOLID:
+ * - HERENCIA: Extiende BaseController
+ * - DIP (Dependency Inversion Principle): Depende de la abstracción IUserService
+ * - SRP: Interpreta peticiones HTTP y delega la ejecución al servicio
+ * - THIN CONTROLLERS: No almacena estado ni contiene lógica de negocio
  */
-export class UserController {
-  private userService: UserService;
+export class UserController extends BaseController {
+  private userService: IUserService;
 
-  constructor(userService: UserService) {
+  constructor(userService: IUserService) {
+    super('UserController');
     this.userService = userService;
   }
 
-  /**
-   * GET /api/users/:userId
-   * Obtener perfil de usuario
-   */
   getProfile = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const userId = req.params.userId as string;
-
       const profile = await this.userService.getUserProfile(userId);
-
-      res.json(profile);
+      this.sendSuccess(res, profile);
     } catch (error: any) {
-      if (error.message.includes('no encontrado')) {
-        res.status(404).json({ error: error.message });
-      } else {
-        next(error);
-      }
+      this.handleHttpError(res, error, 'Error obteniendo perfil');
     }
   };
 
-  /**
-   * POST /api/users/:userId/xp
-   * Añadir XP al usuario
-   */
   addXp = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const userId = req.params.userId as string;
       const { xpAmount } = req.body;
 
       if (!xpAmount || xpAmount <= 0) {
-        res.status(400).json({ error: 'XP amount debe ser positivo' });
+        this.sendError(res, 'XP amount debe ser positivo', 400);
         return;
       }
 
       const result = await this.userService.addXpToUser(userId, xpAmount);
-
-      res.json(result);
+      this.sendSuccess(res, result);
     } catch (error: any) {
-      if (error.message.includes('no encontrado')) {
-        res.status(404).json({ error: error.message });
-      } else {
-        next(error);
-      }
+      this.handleHttpError(res, error, 'Error añadiendo XP');
     }
   };
 
-  /**
-   * PUT /api/users/:userId/currency
-   * Actualizar monedas/gemas
-   */
   updateCurrency = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const userId = req.params.userId as string;
       const { coins, gems } = req.body;
 
       const user = await this.userService.updateCurrency(userId, coins, gems);
-
-      res.json(user.toJSON());
+      this.sendSuccess(res, user.toJSON());
     } catch (error: any) {
-      if (error.message.includes('no encontrado')) {
-        res.status(404).json({ error: error.message });
-      } else {
-        next(error);
-      }
+      this.handleHttpError(res, error, 'Error actualizando moneda');
     }
   };
 
-  /**
-   * POST /api/users/:userId/reward
-   * Dar recompensa de monedas
-   */
   rewardCoins = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const userId = req.params.userId as string;
       const { amount } = req.body;
 
       if (!amount || amount <= 0) {
-        res.status(400).json({ error: 'Amount debe ser positivo' });
+        this.sendError(res, 'Amount debe ser positivo', 400);
         return;
       }
 
       const user = await this.userService.rewardCoins(userId, amount);
-
-      res.json(user.toJSON());
+      this.sendSuccess(res, user.toJSON());
     } catch (error: any) {
-      if (error.message.includes('no encontrado')) {
-        res.status(404).json({ error: error.message });
-      } else {
-        next(error);
-      }
+      this.handleHttpError(res, error, 'Error otorgando recompensa');
     }
   };
 
-  /**
-   * POST /api/users/:userId/game-result
-   * Registrar resultado de partida
-   */
   recordGame = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const userId = req.params.userId as string;
       const { score, won, matches, perfectMatches, combo, xpEarned, coinsEarned } = req.body;
 
-      // Validaciones
       if (score === undefined || won === undefined) {
-        res.status(400).json({ error: 'Datos incompletos' });
+        this.sendError(res, 'Datos incompletos', 400);
         return;
       }
 
@@ -134,128 +95,82 @@ export class UserController {
         coinsEarned: coinsEarned || 0,
       });
 
-      res.json(result);
+      this.sendSuccess(res, result);
     } catch (error: any) {
-      if (error.message.includes('no encontrado')) {
-        res.status(404).json({ error: error.message });
-      } else {
-        next(error);
-      }
+      this.handleHttpError(res, error, 'Error registrando partida');
     }
   };
 
-  /**
-   * GET /api/users/:userId/achievements
-   * Obtener logros del usuario
-   */
   getAchievements = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const userId = req.params.userId as string;
-
       const achievements = await this.userService.getUserAchievements(userId);
-
-      res.json({ achievements });
+      this.sendSuccess(res, { achievements });
     } catch (error) {
-      next(error);
+      this.handleHttpError(res, error, 'Error obteniendo logros');
     }
   };
 
-  /**
-   * GET /api/users/:userId/ranking
-   * Obtener ranking del jugador
-   */
   getRanking = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const userId = req.params.userId as string;
-
       const ranking = await this.userService.getPlayerRanking(userId);
-
-      res.json(ranking);
+      this.sendSuccess(res, ranking);
     } catch (error: any) {
-      if (error.message.includes('no encontrada')) {
-        res.status(404).json({ error: error.message });
-      } else {
-        next(error);
-      }
+      this.handleHttpError(res, error, 'Error obteniendo ranking');
     }
   };
 
-  /**
-   * GET /api/users/top
-   * Obtener top jugadores
-   */
   getTopPlayers = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { limit = 10 } = req.query;
-
       const topPlayers = await this.userService.getTopPlayers(parseInt(limit as string));
 
-      res.json(topPlayers.map(p => ({
-        user: p.user.toJSON(),
-        stats: p.stats.toJSON(),
-      })));
+      this.sendSuccess(
+        res,
+        topPlayers.map(p => ({
+          user: p.user.toJSON(),
+          stats: p.stats.toJSON(),
+        }))
+      );
     } catch (error) {
-      next(error);
+      this.handleHttpError(res, error, 'Error obteniendo top jugadores');
     }
   };
 
-  /**
-   * POST /api/users/:userId/ban
-   * Banear usuario (solo admin)
-   */
   banUser = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const userId = req.params.userId as string;
       const { reason, duration } = req.body;
 
       if (!reason) {
-        res.status(400).json({ error: 'Razón de baneo requerida' });
+        this.sendError(res, 'Razón de baneo requerida', 400);
         return;
       }
 
       const user = await this.userService.banUser(userId, reason, duration);
-
-      res.json(user.toJSON());
+      this.sendSuccess(res, user.toJSON());
     } catch (error: any) {
-      if (error.message.includes('no encontrado')) {
-        res.status(404).json({ error: error.message });
-      } else {
-        next(error);
-      }
+      this.handleHttpError(res, error, 'Error al banear usuario');
     }
   };
 
-  /**
-   * POST /api/users/:userId/unban
-   * Desbanear usuario (solo admin)
-   */
   unbanUser = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const userId = req.params.userId as string;
-
       const user = await this.userService.unbanUser(userId);
-
-      res.json(user.toJSON());
+      this.sendSuccess(res, user.toJSON());
     } catch (error: any) {
-      if (error.message.includes('no encontrado')) {
-        res.status(404).json({ error: error.message });
-      } else {
-        next(error);
-      }
+      this.handleHttpError(res, error, 'Error al desbanear usuario');
     }
   };
 
-  /**
-   * GET /api/users/banned
-   * Obtener usuarios baneados (solo admin)
-   */
   getBannedUsers = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const bannedUsers = await this.userService.getBannedUsers();
-
-      res.json(bannedUsers.map(u => u.toJSON()));
+      this.sendSuccess(res, bannedUsers.map(u => u.toJSON()));
     } catch (error) {
-      next(error);
+      this.handleHttpError(res, error, 'Error obteniendo usuarios baneados');
     }
   };
 }

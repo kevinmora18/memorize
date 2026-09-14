@@ -1,25 +1,26 @@
 import { BaseService } from '../core/BaseService';
-import { UserRepository } from '../repositories/UserRepository';
-import { PlayerStatsRepository } from '../repositories/PlayerStatsRepository';
+import { IUserRepository, IPlayerStatsRepository } from '../core/interfaces/IRepository';
+import { IUserService } from '../core/interfaces/IServices';
 import { User } from '../models/domain/User.model';
 import { PlayerStats } from '../models/domain/PlayerStats.model';
 
 /**
  * UserService - Servicio para gestión de usuarios
  * 
- * EXPLICACIÓN POO:
+ * EXPLICACIÓN POO Y SOLID:
  * - HERENCIA: Extiende BaseService
- * - SRP: Solo maneja lógica de usuarios
- * - DEPENDENCY INJECTION: Recibe repositorios como dependencias
- * - COMPOSICIÓN: Usa múltiples repositorios para operaciones complejas
+ * - DIP (Dependency Inversion Principle): Inyecta interfaces IUserRepository e IPlayerStatsRepository
+ * - ISP: Implementa la interfaz específica IUserService
+ * - SRP: Se encarga de la lógica de negocio de usuarios, progresión y sanciones
+ * - ENCAPSULACIÓN: Interactúa con los modelos mediante sus métodos de dominio protegidos
  */
-export class UserService extends BaseService {
-  private userRepository: UserRepository;
-  private statsRepository: PlayerStatsRepository;
+export class UserService extends BaseService implements IUserService {
+  private userRepository: IUserRepository;
+  private statsRepository: IPlayerStatsRepository;
 
   constructor(
-    userRepository: UserRepository,
-    statsRepository: PlayerStatsRepository
+    userRepository: IUserRepository,
+    statsRepository: IPlayerStatsRepository
   ) {
     super('UserService');
     this.userRepository = userRepository;
@@ -30,9 +31,6 @@ export class UserService extends BaseService {
     this.log('Servicio de usuarios inicializado');
   }
 
-  /**
-   * Obtener perfil completo de usuario (con estadísticas)
-   */
   async getUserProfile(userId: string): Promise<{
     user: User;
     stats: PlayerStats | null;
@@ -46,16 +44,12 @@ export class UserService extends BaseService {
       }
 
       const stats = await this.statsRepository.findByUserId(userId);
-
       return { user, stats };
     } catch (error: any) {
       this.handleError(error, 'getUserProfile');
     }
   }
 
-  /**
-   * Actualizar XP y nivel del usuario
-   */
   async addXpToUser(userId: string, xpAmount: number): Promise<{
     user: User;
     levelsGained: number;
@@ -68,26 +62,20 @@ export class UserService extends BaseService {
         throw new Error('Usuario no encontrado');
       }
 
-      // Usar método del modelo de dominio
       const levelsGained = user.addXp(xpAmount);
 
-      // Guardar cambios
       const updatedUser = await this.userRepository.update(userId, {
         xp: user.xp,
         level: user.level,
       });
 
       this.log(`Usuario ${userId} subió ${levelsGained} niveles`);
-
       return { user: updatedUser, levelsGained };
     } catch (error: any) {
       this.handleError(error, 'addXpToUser');
     }
   }
 
-  /**
-   * Actualizar monedas del usuario
-   */
   async updateCurrency(
     userId: string,
     coins?: number,
@@ -101,8 +89,8 @@ export class UserService extends BaseService {
         throw new Error('Usuario no encontrado');
       }
 
-      if (coins !== undefined) user.coins = coins;
-      if (gems !== undefined) user.gems = gems;
+      // ENCAPSULACIÓN: Se utiliza el método de negocio del modelo
+      user.setCurrency(coins, gems);
 
       return await this.userRepository.update(userId, {
         coins: user.coins,
@@ -113,9 +101,6 @@ export class UserService extends BaseService {
     }
   }
 
-  /**
-   * Añadir monedas como recompensa
-   */
   async rewardCoins(userId: string, amount: number): Promise<User> {
     try {
       this.log(`Recompensando ${amount} monedas al usuario: ${userId}`);
@@ -135,9 +120,6 @@ export class UserService extends BaseService {
     }
   }
 
-  /**
-   * Registrar partida jugada y actualizar estadísticas
-   */
   async recordGamePlayed(
     userId: string,
     gameData: {
@@ -157,7 +139,6 @@ export class UserService extends BaseService {
     try {
       this.log(`Registrando partida para usuario: ${userId}`);
 
-      // Obtener usuario y estadísticas
       const user = await this.userRepository.findById(userId);
       if (!user) {
         throw new Error('Usuario no encontrado');
@@ -165,11 +146,9 @@ export class UserService extends BaseService {
 
       let stats = await this.statsRepository.findByUserId(userId);
       if (!stats) {
-        // Crear estadísticas si no existen
         stats = await this.statsRepository.create({ userId });
       }
 
-      // Actualizar estadísticas usando método del modelo
       stats.recordGame(
         gameData.score,
         gameData.won,
@@ -178,11 +157,9 @@ export class UserService extends BaseService {
         gameData.combo
       );
 
-      // Actualizar XP y monedas
       const levelsGained = user.addXp(gameData.xpEarned);
       user.addCoins(gameData.coinsEarned);
 
-      // Guardar cambios
       const [updatedUser, updatedStats] = await Promise.all([
         this.userRepository.update(userId, {
           xp: user.xp,
@@ -204,16 +181,10 @@ export class UserService extends BaseService {
     }
   }
 
-  /**
-   * Obtener logros del usuario
-   */
   async getUserAchievements(userId: string): Promise<string[]> {
     try {
       const stats = await this.statsRepository.findByUserId(userId);
-      if (!stats) {
-        return [];
-      }
-
+      if (!stats) return [];
       return stats.checkAchievements();
     } catch (error: any) {
       this.log(`Error obteniendo logros: ${error.message}`, 'error');
@@ -221,9 +192,6 @@ export class UserService extends BaseService {
     }
   }
 
-  /**
-   * Obtener clasificación del jugador
-   */
   async getPlayerRanking(userId: string): Promise<{
     rank: number;
     totalPlayers: number;
@@ -235,14 +203,13 @@ export class UserService extends BaseService {
         throw new Error('Estadísticas no encontradas');
       }
 
-      // Obtener todos los jugadores ordenados por mejor puntuación
       const allStats = await this.statsRepository.findAll({
         orderBy: 'bestScore',
       });
 
       const rank = allStats.findIndex(s => s.userId === userId) + 1;
       const totalPlayers = allStats.length;
-      const percentile = ((totalPlayers - rank) / totalPlayers) * 100;
+      const percentile = totalPlayers > 0 ? ((totalPlayers - rank) / totalPlayers) * 100 : 0;
 
       return { rank, totalPlayers, percentile };
     } catch (error: any) {
@@ -250,13 +217,10 @@ export class UserService extends BaseService {
     }
   }
 
-  /**
-   * Banear usuario
-   */
   async banUser(
     userId: string,
     reason: string,
-    duration?: number // minutos, undefined = permanente
+    duration?: number
   ): Promise<User> {
     try {
       this.log(`Baneando usuario: ${userId}. Razón: ${reason}`);
@@ -266,40 +230,41 @@ export class UserService extends BaseService {
         throw new Error('Usuario no encontrado');
       }
 
-      const bannedUntil = duration
-        ? new Date(Date.now() + duration * 60 * 1000)
-        : null;
+      // ENCAPSULACIÓN: Métodos del modelo de dominio
+      user.applyBan(reason, duration);
 
       return await this.userRepository.update(userId, {
-        isBanned: true,
-        bannedUntil,
-        banReason: reason,
+        isBanned: user.isBanned,
+        bannedUntil: user.bannedUntil,
+        banReason: user.banReason,
       });
     } catch (error: any) {
       this.handleError(error, 'banUser');
     }
   }
 
-  /**
-   * Desbanear usuario
-   */
   async unbanUser(userId: string): Promise<User> {
     try {
       this.log(`Desbaneando usuario: ${userId}`);
 
+      const user = await this.userRepository.findById(userId);
+      if (!user) {
+        throw new Error('Usuario no encontrado');
+      }
+
+      // ENCAPSULACIÓN: Métodos del modelo de dominio
+      user.removeBan();
+
       return await this.userRepository.update(userId, {
-        isBanned: false,
-        bannedUntil: null,
-        banReason: null,
+        isBanned: user.isBanned,
+        bannedUntil: user.bannedUntil,
+        banReason: user.banReason,
       });
     } catch (error: any) {
       this.handleError(error, 'unbanUser');
     }
   }
 
-  /**
-   * Obtener usuarios baneados
-   */
   async getBannedUsers(): Promise<User[]> {
     try {
       return await this.userRepository.findBannedUsers();
@@ -308,9 +273,6 @@ export class UserService extends BaseService {
     }
   }
 
-  /**
-   * Obtener top jugadores
-   */
   async getTopPlayers(limit: number = 10): Promise<Array<{
     user: User;
     stats: PlayerStats;
@@ -321,11 +283,11 @@ export class UserService extends BaseService {
       const results = await Promise.all(
         topStats.map(async (stats) => {
           const user = await this.userRepository.findById(stats.userId);
-          return { user: user!, stats };
+          return user ? { user, stats } : null;
         })
       );
 
-      return results.filter(r => r.user !== null);
+      return results.filter((r): r is { user: User; stats: PlayerStats } => r !== null);
     } catch (error: any) {
       this.handleError(error, 'getTopPlayers');
     }

@@ -11,6 +11,7 @@ import { DailyRewardModal } from './DailyRewardModal';
 import { isDailyRewardAvailable } from '../lib/dailyRewardsSystem';
 import { getEquippedFrameDetails } from '../lib/shopSystem';
 import type { Room } from '../App';
+import { API_BASE, getToken } from '../lib/api';
 
 interface LobbyScreenProps {
   onStartMode: (mode: string) => void;
@@ -23,7 +24,6 @@ interface LobbyScreenProps {
 }
 
 export function LobbyScreen({ onStartMode, onLogout, userRole, userId, rooms = [], onCreateRoom, onJoinRoom }: LobbyScreenProps) {
-  const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:5175';
   const [showMessages, setShowMessages] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showRanksModal, setShowRanksModal] = useState(false);
@@ -47,8 +47,14 @@ export function LobbyScreen({ onStartMode, onLogout, userRole, userId, rooms = [
     setPlayerStats(stats);
     
     if (userId) {
-      fetch(`${API_BASE}/api/users/${userId}`)
-        .then(res => res.json())
+      const token = getToken();
+      fetch(`${API_BASE}/api/users/${userId}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
+        .then(res => {
+          if (!res.ok) throw new Error('No autorizado');
+          return res.json();
+        })
         .then(data => {
           if (data.coins !== undefined) setCoins(data.coins);
           if (data.gems !== undefined) setGems(data.gems);

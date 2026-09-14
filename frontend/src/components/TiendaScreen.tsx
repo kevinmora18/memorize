@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { soundSystem } from '../lib/soundSystem';
 import { getEquippedItems, type SkinDetails } from '../lib/shopSystem';
+import { API_BASE, getToken } from '../lib/api';
 
 interface TiendaScreenProps {
   onBack: () => void;
@@ -124,7 +125,6 @@ const PROFILE_FRAMES: ShopItem[] = [
 ];
 
 export function TiendaScreen({ onBack, userId }: TiendaScreenProps) {
-  const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:5175';
   const [activeTab, setActiveTab] = useState<ShopTab>('offers');
   
   const [coins, setCoins] = useState(1500);
@@ -160,8 +160,14 @@ export function TiendaScreen({ onBack, userId }: TiendaScreenProps) {
 
   useEffect(() => {
     if (userId) {
-      fetch(`${API_BASE}/api/users/${userId}`)
-        .then(res => res.json())
+      const token = getToken();
+      fetch(`${API_BASE}/api/users/${userId}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
+        .then(res => {
+          if (!res.ok) throw new Error('No autorizado');
+          return res.json();
+        })
         .then(data => {
           if (data.coins !== undefined) setCoins(data.coins);
           if (data.gems !== undefined) setGems(data.gems);

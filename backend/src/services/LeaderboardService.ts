@@ -1,27 +1,31 @@
 import { PrismaClient } from '@prisma/client';
 import { BaseService } from '../core/BaseService';
-import { PlayerStatsRepository } from '../repositories/PlayerStatsRepository';
-import { UserRepository } from '../repositories/UserRepository';
-import { MatchRepository } from '../repositories/MatchRepository';
+import {
+  IUserRepository,
+  IPlayerStatsRepository,
+  IMatchRepository,
+} from '../core/interfaces/IRepository';
+import { ILeaderboardService } from '../core/interfaces/IServices';
 
 /**
  * LeaderboardService - Servicio para rankings y tablas de clasificación
  *
- * EXPLICACIÓN POO:
+ * EXPLICACIÓN POO Y SOLID:
  * - HERENCIA: Extiende BaseService
- * - SRP: Solo maneja lógica de rankings
- * - DEPENDENCY INJECTION: Recibe repositorios y prisma como dependencias
+ * - DIP (Dependency Inversion Principle): Inyecta interfaces IUserRepository, IPlayerStatsRepository, IMatchRepository
+ * - ISP: Implementa la interfaz específica ILeaderboardService
+ * - SRP: Exclusivamente enfocado en el cálculo y agregación de clasificaciones
  */
-export class LeaderboardService extends BaseService {
-  private userRepository: UserRepository;
-  private statsRepository: PlayerStatsRepository;
-  private matchRepository: MatchRepository;
+export class LeaderboardService extends BaseService implements ILeaderboardService {
+  private userRepository: IUserRepository;
+  private statsRepository: IPlayerStatsRepository;
+  private matchRepository: IMatchRepository;
   private prisma: PrismaClient;
 
   constructor(
-    userRepository: UserRepository,
-    statsRepository: PlayerStatsRepository,
-    matchRepository: MatchRepository,
+    userRepository: IUserRepository,
+    statsRepository: IPlayerStatsRepository,
+    matchRepository: IMatchRepository,
     prisma: PrismaClient
   ) {
     super('LeaderboardService');
@@ -35,9 +39,6 @@ export class LeaderboardService extends BaseService {
     this.log('Servicio de leaderboard inicializado');
   }
 
-  /**
-   * Ranking global por criterio (xp, level, coins, wins, score)
-   */
   async getGlobalLeaderboard(
     type: string = 'xp',
     limit: number = 100
@@ -45,7 +46,6 @@ export class LeaderboardService extends BaseService {
     try {
       this.log(`Obteniendo ranking global por: ${type}`);
 
-      // Rankings que se pueden ordenar directamente en User
       const directOrderFields: Record<string, any> = {
         xp: { xp: 'desc' },
         level: { level: 'desc' },
@@ -78,7 +78,6 @@ export class LeaderboardService extends BaseService {
         return { leaderboard, total: leaderboard.length };
       }
 
-      // Rankings que dependen de PlayerStats
       const sortField = type === 'wins' ? 'gamesWon' : 'bestScore';
       const topStats = await this.statsRepository.getTopPlayers(sortField as any, limit);
 
@@ -104,16 +103,13 @@ export class LeaderboardService extends BaseService {
         })
       );
 
-      const leaderboard = results.filter(Boolean);
+      const leaderboard = results.filter((r): r is NonNullable<typeof r> => r !== null);
       return { leaderboard, total: leaderboard.length };
     } catch (error: any) {
       this.handleError(error, 'getGlobalLeaderboard');
     }
   }
 
-  /**
-   * Posición de un usuario específico en el ranking
-   */
   async getUserRank(
     userId: string,
     type: string = 'xp'
@@ -163,9 +159,6 @@ export class LeaderboardService extends BaseService {
     }
   }
 
-  /**
-   * Mejores puntuaciones por modo de juego (agrupadas por usuario)
-   */
   async getLeaderboardByMode(
     mode: string,
     limit: number = 100
@@ -175,7 +168,6 @@ export class LeaderboardService extends BaseService {
 
       const matches = await this.matchRepository.getBestScoresByMode(mode, limit * 3);
 
-      // Guardar solo la mejor puntuación por usuario
       const userBest = new Map<string, any>();
       for (const match of matches) {
         const existing = userBest.get(match.userId);
@@ -208,9 +200,6 @@ export class LeaderboardService extends BaseService {
     }
   }
 
-  /**
-   * Ranking semanal (suma de puntuaciones en la semana actual)
-   */
   async getWeeklyLeaderboard(limit: number = 100): Promise<any> {
     try {
       this.log('Obteniendo ranking semanal');
@@ -226,9 +215,6 @@ export class LeaderboardService extends BaseService {
     }
   }
 
-  /**
-   * Ranking mensual (suma de puntuaciones en el mes actual)
-   */
   async getMonthlyLeaderboard(limit: number = 100): Promise<any> {
     try {
       this.log('Obteniendo ranking mensual');
@@ -242,9 +228,6 @@ export class LeaderboardService extends BaseService {
     }
   }
 
-  /**
-   * Construye un ranking por período agrupando puntuaciones por usuario
-   */
   private async buildPeriodLeaderboard(
     startDate: Date,
     endDate: Date,
@@ -253,7 +236,6 @@ export class LeaderboardService extends BaseService {
   ): Promise<any> {
     const matches = await this.matchRepository.findByDateRange(startDate, endDate);
 
-    // Acumular puntuaciones por usuario
     const userScores = new Map<string, { totalScore: number; gamesPlayed: number; gamesWon: number }>();
     for (const match of matches) {
       const existing = userScores.get(match.userId) ?? { totalScore: 0, gamesPlayed: 0, gamesWon: 0 };
@@ -263,7 +245,6 @@ export class LeaderboardService extends BaseService {
       userScores.set(match.userId, existing);
     }
 
-    // Enriquecer con datos de usuario
     const leaderboard = (
       await Promise.all(
         Array.from(userScores.entries()).map(async ([userId, data]) => {
@@ -279,8 +260,8 @@ export class LeaderboardService extends BaseService {
         })
       )
     )
-      .filter(Boolean)
-      .sort((a: any, b: any) => b.totalScore - a.totalScore)
+      .filter((u): u is NonNullable<typeof u> => u !== null)
+      .sort((a, b) => b.totalScore - a.totalScore)
       .slice(0, limit)
       .map((entry, index) => ({ rank: index + 1, ...entry }));
 

@@ -1,31 +1,29 @@
 import { Request, Response, NextFunction } from 'express';
-import { MatchService } from '../services/MatchService';
+import { BaseController } from '../core/BaseController';
+import { IMatchService } from '../core/interfaces/IServices';
 
 /**
  * MatchController - Controlador para rutas de partidas
  *
- * EXPLICACIÓN POO:
- * - SRP: Solo maneja peticiones HTTP de partidas
- * - DEPENDENCY INJECTION: Recibe el servicio como dependencia
- * - THIN CONTROLLER: Delega toda la lógica al servicio
+ * EXPLICACIÓN POO Y SOLID:
+ * - HERENCIA: Extiende BaseController
+ * - DIP (Dependency Inversion Principle): Depende de la interfaz IMatchService
+ * - SRP: Gestiona exclusivamente el transporte HTTP de resultados e historial de partidas
  */
-export class MatchController {
-  private matchService: MatchService;
+export class MatchController extends BaseController {
+  private matchService: IMatchService;
 
-  constructor(matchService: MatchService) {
+  constructor(matchService: IMatchService) {
+    super('MatchController');
     this.matchService = matchService;
   }
 
-  /**
-   * POST /api/matches
-   * Guardar resultado de una partida
-   */
   saveMatch = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { userId, mode, level, score, accuracy, combo, timeLeft, won } = req.body;
 
       if (!userId || !mode || score === undefined || won === undefined) {
-        res.status(400).json({ error: 'Datos incompletos: userId, mode, score y won son requeridos' });
+        this.sendError(res, 'Datos incompletos: userId, mode, score y won son requeridos', 400);
         return;
       }
 
@@ -40,24 +38,16 @@ export class MatchController {
         won,
       });
 
-      res.json({
+      this.sendSuccess(res, {
         match: result.match.toJSON(),
         xpGained: result.xpEarned,
         coinsGained: result.coinsEarned,
       });
     } catch (error: any) {
-      if (error.message.includes('no encontrado')) {
-        res.status(404).json({ error: error.message });
-      } else {
-        next(error);
-      }
+      this.handleHttpError(res, error, 'Error guardando partida');
     }
   };
 
-  /**
-   * GET /api/matches/user/:userId
-   * Obtener historial de partidas de un usuario
-   */
   getUserMatches = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const userId = req.params.userId as string;
@@ -69,14 +59,14 @@ export class MatchController {
         mode: mode as string | undefined,
       });
 
-      res.json({
+      this.sendSuccess(res, {
         matches: result.matches.map(m => m.toJSON()),
         total: result.total,
         page: page ? parseInt(page as string) : 1,
         limit: limit ? parseInt(limit as string) : 20,
       });
     } catch (error) {
-      next(error);
+      this.handleHttpError(res, error, 'Error obteniendo historial de partidas');
     }
   };
 }

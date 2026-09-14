@@ -1,25 +1,23 @@
 import { Request, Response, NextFunction } from 'express';
-import { LeaderboardService } from '../services/LeaderboardService';
+import { BaseController } from '../core/BaseController';
+import { ILeaderboardService } from '../core/interfaces/IServices';
 
 /**
  * LeaderboardController - Controlador para rutas de rankings
  *
- * EXPLICACIÓN POO:
- * - SRP: Solo maneja peticiones HTTP de leaderboard
- * - DEPENDENCY INJECTION: Recibe el servicio como dependencia
- * - THIN CONTROLLER: Delega toda la lógica al servicio
+ * EXPLICACIÓN POO Y SOLID:
+ * - HERENCIA: Extiende BaseController
+ * - DIP (Dependency Inversion Principle): Depende de ILeaderboardService
+ * - SRP: Encargado exclusivamente del transporte HTTP para consultas de rankings
  */
-export class LeaderboardController {
-  private leaderboardService: LeaderboardService;
+export class LeaderboardController extends BaseController {
+  private leaderboardService: ILeaderboardService;
 
-  constructor(leaderboardService: LeaderboardService) {
+  constructor(leaderboardService: ILeaderboardService) {
+    super('LeaderboardController');
     this.leaderboardService = leaderboardService;
   }
 
-  /**
-   * GET /api/leaderboard
-   * Ranking global por criterio
-   */
   getGlobalLeaderboard = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { type = 'xp', limit = '100' } = req.query;
@@ -29,36 +27,24 @@ export class LeaderboardController {
         parseInt(limit as string)
       );
 
-      res.json({ type, period: 'all', ...result });
+      this.sendSuccess(res, { type, period: 'all', ...result });
     } catch (error) {
-      next(error);
+      this.handleHttpError(res, error, 'Error obteniendo ranking global');
     }
   };
 
-  /**
-   * GET /api/leaderboard/user/:userId
-   * Posición de un usuario específico
-   */
   getUserRank = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { userId } = req.params;
       const { type = 'xp' } = req.query;
 
       const rank = await this.leaderboardService.getUserRank(userId as string, type as string);
-      res.json({ ...rank, type });
+      this.sendSuccess(res, { ...rank, type });
     } catch (error: any) {
-      if (error.message.includes('no encontrado')) {
-        res.status(404).json({ error: error.message });
-      } else {
-        next(error);
-      }
+      this.handleHttpError(res, error, 'Error obteniendo rango del usuario');
     }
   };
 
-  /**
-   * GET /api/leaderboard/mode/:mode
-   * Mejores puntuaciones por modo
-   */
   getLeaderboardByMode = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { mode } = req.params;
@@ -69,37 +55,29 @@ export class LeaderboardController {
         parseInt(limit as string)
       );
 
-      res.json({ ...result, total: result.leaderboard.length });
+      this.sendSuccess(res, { ...result, total: result.leaderboard.length });
     } catch (error) {
-      next(error);
+      this.handleHttpError(res, error, 'Error obteniendo ranking por modo');
     }
   };
 
-  /**
-   * GET /api/leaderboard/weekly
-   * Ranking semanal
-   */
   getWeeklyLeaderboard = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { limit = '100' } = req.query;
       const result = await this.leaderboardService.getWeeklyLeaderboard(parseInt(limit as string));
-      res.json(result);
+      this.sendSuccess(res, result);
     } catch (error) {
-      next(error);
+      this.handleHttpError(res, error, 'Error obteniendo ranking semanal');
     }
   };
 
-  /**
-   * GET /api/leaderboard/monthly
-   * Ranking mensual
-   */
   getMonthlyLeaderboard = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { limit = '100' } = req.query;
       const result = await this.leaderboardService.getMonthlyLeaderboard(parseInt(limit as string));
-      res.json(result);
+      this.sendSuccess(res, result);
     } catch (error) {
-      next(error);
+      this.handleHttpError(res, error, 'Error obteniendo ranking mensual');
     }
   };
 }

@@ -1,75 +1,108 @@
 import { Request, Response, NextFunction } from 'express';
-import { AuthService } from '../services/AuthService';
+import { BaseController } from '../core/BaseController';
+import { IAuthService } from '../core/interfaces/IServices';
+import { AuthenticatedRequest } from '../core/AuthMiddleware';
+import { signToken } from '../core/JwtUtil';
 
 /**
  * AuthController - Controlador para rutas de autenticación
- * 
- * EXPLICACIÓN POO:
- * - SRP: Solo maneja peticiones HTTP de autenticación
- * - DEPENDENCY INJECTION: Recibe el servicio como dependencia
- * - SEPARACIÓN DE RESPONSABILIDADES: No contiene lógica de negocio
+ *
+ * EXPLICACIÓN POO Y SOLID:
+ * - HERENCIA: Extiende BaseController
+ * - DIP: Depende de la interfaz IAuthService, no de una clase concreta
+ * - SRP: Exclusivamente responsable de interpretar solicitudes HTTP y emitir respuestas
+ * - THIN CONTROLLER: Toda la lógica de negocio reside en el servicio
  */
-export class AuthController {
-  private authService: AuthService;
+export class AuthController extends BaseController {
+  private authService: IAuthService;
 
-  constructor(authService: AuthService) {
+  constructor(authService: IAuthService) {
+    super('AuthController');
     this.authService = authService;
   }
 
   /**
-   * POST /api/auth/login
-   * Login o registro automático
+   * POST /api/auth/register
    */
-  login = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  register = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const { email } = req.body;
+      const { email, password, username } = req.body;
 
-      if (!email || !email.includes('@')) {
-        res.status(400).json({ error: 'Email válido requerido' });
+      if (!email || !password) {
+        this.sendError(res, 'Email y contraseña requeridos', 400);
         return;
       }
 
-      const user = await this.authService.loginOrRegister(email);
+      const user = await this.authService.register(email, password, username);
+      const token = signToken({ userId: user.id, role: user.role, username: user.username });
 
-      res.json(user.toJSON());
+      this.sendCreated(res, { user: user.toJSON(), token });
     } catch (error: any) {
-      if (error.message.includes('baneado')) {
-        res.status(403).json({ error: error.message });
-      } else {
-        next(error);
+      this.handleHttpError(res, error, 'Error al registrar usuario');
+    }
+  };
+
+  /**
+   * POST /api/auth/login
+   */
+  login = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { email, password } = req.body;
+
+      if (!email || !password) {
+        this.sendError(res, 'Email y contraseña requeridos', 400);
+        return;
       }
+
+      const { user, token } = await this.authService.login(email, password);
+      this.sendSuccess(res, { user: user.toJSON(), token });
+    } catch (error: any) {
+      this.handleHttpError(res, error, 'Error al iniciar sesión');
+    }
+  };
+
+  /**
+   * GET /api/auth/me - Devuelve el usuario autenticado a partir del token JWT
+   */
+  me = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+      const userId = req.user!.userId;
+      const user = await this.authService.validateAccess(userId);
+
+      if (!user) {
+        this.sendError(res, 'Sesión inválida o usuario suspendido', 401);
+        return;
+      }
+
+      this.sendSuccess(res, { userId, isValid: true });
+    } catch (error: any) {
+      this.handleHttpError(res, error, 'Error validando sesión');
     }
   };
 
   /**
    * GET /api/auth/validate/:userId
-   * Validar si un usuario tiene acceso
    */
-  validateAccess = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  validateAccess = async (req: Request, res: Response): Promise<void> => {
     try {
       const userId = req.params.userId as string;
-
       const hasAccess = await this.authService.validateAccess(userId);
-
-      res.json({ hasAccess });
+      this.sendSuccess(res, { hasAccess });
     } catch (error) {
-      next(error);
+      this.handleHttpError(res, error, 'Error validando acceso');
     }
   };
 
   /**
    * GET /api/auth/is-admin/:userId
-   * Verificar si un usuario es admin
    */
-  checkAdmin = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  checkAdmin = async (req: Request, res: Response): Promise<void> => {
     try {
       const userId = req.params.userId as string;
-
       const isAdmin = await this.authService.isAdmin(userId);
-
-      res.json({ isAdmin });
+      this.sendSuccess(res, { isAdmin });
     } catch (error) {
-      next(error);
+      this.handleHttpError(res, error, 'Error verificando rol de administrador');
     }
   };
 }

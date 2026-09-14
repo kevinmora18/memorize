@@ -1,24 +1,23 @@
 import { PrismaClient, Match as PrismaMatch } from '@prisma/client';
 import { BaseRepository } from '../core/BaseRepository';
+import { IMatchRepository } from '../core/interfaces/IRepository';
 import { Match, IMatch } from '../models/domain/Match.model';
 
 /**
  * MatchRepository - Repositorio para operaciones de partidas
  *
- * EXPLICACIÓN POO:
- * - HERENCIA: Extiende BaseRepository
- * - POLIMORFISMO: Implementa métodos abstractos de BaseRepository
- * - ENCAPSULACIÓN: Oculta Prisma detrás de métodos simples
- * - SRP: Solo maneja acceso a datos de partidas
+ * EXPLICACIÓN POO Y SOLID:
+ * - HERENCIA: Extiende BaseRepository<Match, string>
+ * - LSP (Liskov Substitution Principle): Satisface rigurosamente las firmas de create y update
+ *   de BaseRepository con Partial<Match | IMatch>, garantizando total sustituibilidad polimórfica
+ * - ISP: Implementa la interfaz específica IMatchRepository
+ * - SRP: Maneja únicamente el acceso a datos de partidas
  */
-export class MatchRepository extends BaseRepository<Match, string> {
+export class MatchRepository extends BaseRepository<Match, string> implements IMatchRepository {
   constructor(prisma: PrismaClient) {
     super(prisma, 'Match');
   }
 
-  /**
-   * Convierte registro Prisma a modelo de dominio
-   */
   private toDomain(prismaMatch: PrismaMatch): Match {
     return new Match({
       id: prismaMatch.id,
@@ -40,30 +39,43 @@ export class MatchRepository extends BaseRepository<Match, string> {
     return match ? this.toDomain(match) : null;
   }
 
-  async create(data: Omit<IMatch, 'id' | 'createdAt'>): Promise<Match> {
+  /**
+   * LSP: Acepta Partial<Match | IMatch> según contrato de BaseRepository
+   */
+  async create(data: Partial<Match | IMatch>): Promise<Match> {
+    if (!data.userId || !data.mode) {
+      throw new Error('userId y mode son requeridos para crear una partida');
+    }
+
     this.log(`Creando partida para usuario: ${data.userId}`);
     const match = await this.prisma.match.create({
       data: {
         userId: data.userId,
         mode: data.mode,
         level: data.level ?? undefined,
-        score: data.score,
+        score: data.score ?? 0,
         accuracy: data.accuracy ?? undefined,
         combo: data.combo ?? undefined,
         timeLeft: data.timeLeft ?? undefined,
-        won: data.won,
+        won: data.won ?? false,
       },
     });
     return this.toDomain(match);
   }
 
-  async update(id: string, data: Partial<IMatch>): Promise<Match> {
+  /**
+   * LSP: Acepta cualquier campo mutable de Partial<Match | IMatch>
+   */
+  async update(id: string, data: Partial<Match | IMatch>): Promise<Match> {
     this.log(`Actualizando partida: ${id}`);
     const match = await this.prisma.match.update({
       where: { id },
       data: {
-        score: data.score,
-        won: data.won,
+        ...(data.score !== undefined && { score: data.score }),
+        ...(data.won !== undefined && { won: data.won }),
+        ...(data.accuracy !== undefined && { accuracy: data.accuracy }),
+        ...(data.combo !== undefined && { combo: data.combo }),
+        ...(data.timeLeft !== undefined && { timeLeft: data.timeLeft }),
       },
     });
     return this.toDomain(match);
@@ -98,9 +110,6 @@ export class MatchRepository extends BaseRepository<Match, string> {
     return this.prisma.match.count({ where });
   }
 
-  /**
-   * Obtener las mejores puntuaciones por modo
-   */
   async getBestScoresByMode(mode: string, limit: number = 100): Promise<Match[]> {
     this.log(`Obteniendo mejores puntuaciones para modo: ${mode}`);
     const matches = await this.prisma.match.findMany({
@@ -111,9 +120,6 @@ export class MatchRepository extends BaseRepository<Match, string> {
     return matches.map(m => this.toDomain(m));
   }
 
-  /**
-   * Obtener partidas en un rango de fechas
-   */
   async findByDateRange(startDate: Date, endDate: Date): Promise<Match[]> {
     this.log(`Buscando partidas entre ${startDate.toISOString()} y ${endDate.toISOString()}`);
     const matches = await this.prisma.match.findMany({

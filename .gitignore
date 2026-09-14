@@ -45,7 +45,6 @@ Thumbs.db
 *.code-workspace
 
 # Prisma
-prisma/migrations/
 *.db
 *.db-journal
 

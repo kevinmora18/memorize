@@ -1,20 +1,21 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Sparkles, ArrowRight, Check, Shield } from 'lucide-react';
+import { apiPost } from '../lib/api';
 
 interface LoginScreenProps {
-  onLoginSuccess: (email: string) => void;
+  onLoginSuccess: (user: any, token: string) => void;
   onRegisterRedirect?: () => void;
 }
 
 export function LoginScreen({ onLoginSuccess, onRegisterRedirect }: LoginScreenProps) {
-  const [step, setStep] = useState<'email' | 'code'>('email');
+  const [step, setStep] = useState<'email' | 'password'>('email');
   const [email, setEmail] = useState('');
-  const [code, setCode] = useState('');
-  const [generatedCode, setGeneratedCode] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSendCode = (e: React.FormEvent) => {
+  const handleNext = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -23,25 +24,65 @@ export function LoginScreen({ onLoginSuccess, onRegisterRedirect }: LoginScreenP
       return;
     }
 
-    const randomCode = '000000';
-    setGeneratedCode(randomCode);
-    setCode('000000'); // Auto-completar para evitar confusión en móvil
-    setStep('code');
+    setStep('password');
   };
 
-  const handleVerifyCode = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
 
-    const inputCode = code.trim();
-    // Aceptar si es 000000, si coincide con el generado, o si se pulsa directo
-    if (!inputCode || inputCode === '000000' || inputCode === generatedCode || inputCode.length >= 4) {
-      onLoginSuccess(email || 'jugador@memorize.com');
-    } else {
-      setError('Código incorrecto. Intenta de nuevo.');
+    if (!password) {
+      setError('Por favor ingresa tu contraseña');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const data = await apiPost<{ user: any; token: string }>('/api/auth/login', {
+        email,
+        password,
+      });
+      onLoginSuccess(data.user, data.token);
+    } catch (err: any) {
+      setError(err.message || 'Error al iniciar sesión');
+    } finally {
+      setLoading(false);
     }
   };
 
+  const handleGuestAccess = async () => {
+    setError('');
+    setLoading(true);
+
+    const guestEmail = `invitado_${Math.floor(Math.random() * 899999 + 100000)}@movil.com`;
+    const guestPassword = `g${Date.now().toString(36)}${Math.floor(Math.random() * 100000)}`;
+
+    try {
+      // Intentar iniciar sesión (por si la cuenta ya existe), si no, registrarla
+      try {
+        const data = await apiPost<{ user: any; token: string }>('/api/auth/login', {
+          email: guestEmail,
+          password: guestPassword,
+        });
+        onLoginSuccess(data.user, data.token);
+        return;
+      } catch (loginErr: any) {
+        // No existe la cuenta aún -> registrarla
+      }
+
+      const data = await apiPost<{ user: any; token: string }>('/api/auth/register', {
+        email: guestEmail,
+        password: guestPassword,
+        username: `Invitado_${Math.floor(Math.random() * 8999 + 1000)}`,
+      });
+      onLoginSuccess(data.user, data.token);
+    } catch (err: any) {
+      setError(err.message || 'Error en acceso rápido');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div 
@@ -161,7 +202,7 @@ export function LoginScreen({ onLoginSuccess, onRegisterRedirect }: LoginScreenP
                   </div>
                 </div>
 
-                <form onSubmit={handleSendCode} className="space-y-5">
+                <form onSubmit={handleNext} className="space-y-5">
                   <div>
                     <label className="block text-sm text-purple-300 mb-2 font-semibold">
                       Correo electrónico
@@ -189,24 +230,22 @@ export function LoginScreen({ onLoginSuccess, onRegisterRedirect }: LoginScreenP
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     type="submit"
-                    className="w-full py-4 bg-gradient-to-r from-purple-600 via-purple-500 to-cyan-500 hover:from-purple-500 hover:via-cyan-500 hover:to-blue-500 rounded-2xl flex items-center justify-center gap-2 transition-all font-bold text-lg shadow-lg shadow-purple-500/50"
+                    disabled={loading}
+                    className="w-full py-4 bg-gradient-to-r from-purple-600 via-purple-500 to-cyan-500 hover:from-purple-500 hover:via-cyan-500 hover:to-blue-500 rounded-2xl flex items-center justify-center gap-2 transition-all font-bold text-lg shadow-lg shadow-purple-500/50 disabled:opacity-50"
                   >
-                    <span>Enviar código</span>
+                    <span>Continuar</span>
                     <ArrowRight className="w-5 h-5" />
                   </motion.button>
 
                   <button
                     type="button"
-                    onClick={() => onLoginSuccess(`invitado_${Math.floor(Math.random() * 8999 + 1000)}@movil.com`)}
-                    className="w-full py-3 bg-white/10 hover:bg-white/15 border border-cyan-400/40 rounded-2xl text-xs font-black uppercase tracking-wider text-cyan-300 transition"
+                    onClick={handleGuestAccess}
+                    disabled={loading}
+                    className="w-full py-3 bg-white/10 hover:bg-white/15 border border-cyan-400/40 rounded-2xl text-xs font-black uppercase tracking-wider text-cyan-300 transition disabled:opacity-50"
                   >
                     ⚡ Acceso Rápido como Invitado
                   </button>
                 </form>
-
-                <p className="text-xs text-gray-400 text-center mt-4">
-                  Te enviaremos un código de 6 dígitos a tu email
-                </p>
 
                 {onRegisterRedirect && (
                   <button
@@ -222,7 +261,7 @@ export function LoginScreen({ onLoginSuccess, onRegisterRedirect }: LoginScreenP
 
           ) : (
             <motion.div
-              key="code"
+              key="password"
               initial={{ x: 300, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: -300, opacity: 0 }}
@@ -235,29 +274,28 @@ export function LoginScreen({ onLoginSuccess, onRegisterRedirect }: LoginScreenP
                   </div>
                   <div>
                     <h3 className="text-2xl text-white font-bold">Paso 2 de 2</h3>
-                    <p className="text-sm text-cyan-300">Verifica tu código</p>
+                    <p className="text-sm text-cyan-300">Ingresa tu contraseña</p>
                   </div>
                 </div>
 
                 <div className="mb-5 p-4 bg-cyan-500/10 border-2 border-cyan-500/30 rounded-2xl">
                   <p className="text-sm text-cyan-300 flex items-center gap-2">
                     <Mail className="w-4 h-4" />
-                    Código enviado a <span className="font-mono font-bold">{email}</span>
+                    Cuenta: <span className="font-mono font-bold">{email}</span>
                   </p>
                 </div>
 
-                <form onSubmit={handleVerifyCode} className="space-y-5">
+                <form onSubmit={handleLogin} className="space-y-5">
                   <div>
                     <label className="block text-sm text-cyan-300 mb-2 font-semibold">
-                      Código de verificación
+                      Contraseña
                     </label>
                     <input
-                      type="text"
-                      value={code}
-                      onChange={(e) => setCode(e.target.value)}
-                      placeholder="000000"
-                      maxLength={6}
-                      className="w-full px-4 py-4 bg-gray-950/50 border-2 border-cyan-500/30 rounded-2xl text-center text-3xl tracking-[0.5em] font-mono focus:outline-none focus:border-blue-400 focus:shadow-[0_0_20px_rgba(59,130,246,0.3)] transition-all text-white placeholder:text-gray-600"
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full px-4 py-4 bg-gray-950/50 border-2 border-cyan-500/30 rounded-2xl font-mono focus:outline-none focus:border-blue-400 focus:shadow-[0_0_20px_rgba(59,130,246,0.3)] transition-all text-white placeholder:text-gray-600"
                     />
                   </div>
 
@@ -272,12 +310,12 @@ export function LoginScreen({ onLoginSuccess, onRegisterRedirect }: LoginScreenP
                   )}
 
                   <button
-                    type="button"
-                    onClick={() => onLoginSuccess(email || 'jugador@memorize.com')}
-                    className="w-full py-4 bg-gradient-to-r from-cyan-500 via-blue-600 to-purple-600 hover:from-cyan-400 hover:to-purple-500 rounded-2xl flex items-center justify-center gap-2 transition-all font-black text-lg shadow-lg shadow-cyan-500/50 text-slate-950 cursor-pointer active:scale-95"
+                    type="submit"
+                    disabled={loading}
+                    className="w-full py-4 bg-gradient-to-r from-cyan-500 via-blue-600 to-purple-600 hover:from-cyan-400 hover:to-purple-500 rounded-2xl flex items-center justify-center gap-2 transition-all font-black text-lg shadow-lg shadow-cyan-500/50 text-slate-950 cursor-pointer active:scale-95 disabled:opacity-50"
                   >
                     <Check className="w-5 h-5 stroke-[3]" />
-                    <span>Verificar e iniciar sesión</span>
+                    <span>{loading ? 'Ingresando...' : 'Iniciar sesión'}</span>
                   </button>
 
 

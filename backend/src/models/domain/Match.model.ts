@@ -1,10 +1,15 @@
 /**
  * Match Domain Model - Modelo de dominio para Partidas
  *
- * EXPLICACIÓN POO:
- * - ENCAPSULACIÓN: Agrupa datos y comportamiento de una partida
- * - MÉTODOS DE NEGOCIO: Cálculo de XP y monedas ganadas
+ * EXPLICACIÓN POO Y SOLID:
+ * - HERENCIA: Extiende BaseEntity para compartir atributos de entidad
+ * - POLIMORFISMO: Delega el cálculo de XP y Monedas a la estrategia polimórfica del modo (Patrón Strategy)
+ * - OCP: Nuevos modos calculan sus recompensas sin modificar esta clase
+ * - ENCAPSULACIÓN: Propiedades de la partida protegidas
  */
+
+import { BaseEntity } from '../../core/BaseEntity';
+import { GameModeFactory } from '../strategies/GameModeStrategy';
 
 export interface IMatch {
   id: string;
@@ -19,8 +24,7 @@ export interface IMatch {
   createdAt: Date;
 }
 
-export class Match implements IMatch {
-  readonly id: string;
+export class Match extends BaseEntity<IMatch> implements IMatch {
   readonly userId: string;
   readonly mode: string;
   readonly level: number | null;
@@ -29,10 +33,9 @@ export class Match implements IMatch {
   readonly combo: number | null;
   readonly timeLeft: number | null;
   readonly won: boolean;
-  readonly createdAt: Date;
 
   constructor(data: IMatch) {
-    this.id = data.id;
+    super(data.id, data.createdAt);
     this.userId = data.userId;
     this.mode = data.mode;
     this.level = data.level;
@@ -41,38 +44,24 @@ export class Match implements IMatch {
     this.combo = data.combo;
     this.timeLeft = data.timeLeft;
     this.won = data.won;
-    this.createdAt = data.createdAt;
   }
 
   /**
-   * Calcula el XP ganado según el modo, puntuación y resultado
+   * POLIMORFISMO & OCP:
+   * Delega el cálculo de XP a la estrategia del modo correspondiente
    */
   calculateXpEarned(): number {
-    const baseXP: Record<string, number> = {
-      classic: 50,
-      infinite: 100,
-      challenge: 75,
-      boss: 250,
-      multiplayer: 100,
-      'ai-friends': 50,
-    };
-
-    let xp = baseXP[this.mode] ?? 50;
-
-    if (this.won) xp *= 1.5;
-    if (this.score > 1000) xp += 50;
-    if (this.score > 2000) xp += 100;
-
-    return Math.floor(xp);
+    const strategy = GameModeFactory.getStrategy(this.mode);
+    return strategy.calculateXp(this.score, this.won);
   }
 
   /**
-   * Calcula las monedas ganadas según puntuación y resultado
+   * POLIMORFISMO & OCP:
+   * Delega el cálculo de monedas a la estrategia del modo correspondiente
    */
   calculateCoinsEarned(): number {
-    let coins = Math.floor(this.score / 10);
-    if (this.won) coins = Math.floor(coins * 1.5);
-    return coins;
+    const strategy = GameModeFactory.getStrategy(this.mode);
+    return strategy.calculateCoins(this.score, this.won);
   }
 
   toJSON(): IMatch {

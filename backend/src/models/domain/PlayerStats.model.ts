@@ -1,10 +1,14 @@
 /**
- * PlayerStats Domain Model - Modelo de dominio para Estadísticas
+ * PlayerStats Domain Model - Modelo de dominio para Estadísticas de Jugador
  * 
- * EXPLICACIÓN POO:
- * - ENCAPSULACIÓN: Agrupa estadísticas y cálculos relacionados
- * - MÉTODOS DE NEGOCIO: Cálculos de win rate, promedio, etc.
+ * EXPLICACIÓN POO Y SOLID:
+ * - HERENCIA: Extiende BaseEntity para compartir identidad y fecha de creación
+ * - ENCAPSULACIÓN: Métricas protegidas; las actualizaciones se realizan mediante recordGame con validación
+ * - ABSTRACCIÓN: Métodos de alto nivel para win rate, nivel de habilidad y detección de logros
+ * - SRP: Se encarga exclusivamente del cálculo y persistencia del rendimiento del jugador
  */
+
+import { BaseEntity } from '../../core/BaseEntity';
 
 export interface IPlayerStats {
   id: string;
@@ -20,106 +24,128 @@ export interface IPlayerStats {
   updatedAt: Date;
 }
 
-/**
- * Clase PlayerStats con métodos de cálculo
- */
-export class PlayerStats implements IPlayerStats {
-  readonly id: string;
+export class PlayerStats extends BaseEntity<IPlayerStats> implements IPlayerStats {
   readonly userId: string;
-  gamesPlayed: number;
-  gamesWon: number;
-  totalScore: number;
-  bestScore: number;
-  totalMatches: number;
-  perfectMatches: number;
-  maxCombo: number;
-  readonly createdAt: Date;
-  updatedAt: Date;
+  private _gamesPlayed: number;
+  private _gamesWon: number;
+  private _totalScore: number;
+  private _bestScore: number;
+  private _totalMatches: number;
+  private _perfectMatches: number;
+  private _maxCombo: number;
 
   constructor(data: IPlayerStats) {
-    this.id = data.id;
+    super(data.id, data.createdAt, data.updatedAt);
     this.userId = data.userId;
-    this.gamesPlayed = data.gamesPlayed;
-    this.gamesWon = data.gamesWon;
-    this.totalScore = data.totalScore;
-    this.bestScore = data.bestScore;
-    this.totalMatches = data.totalMatches;
-    this.perfectMatches = data.perfectMatches;
-    this.maxCombo = data.maxCombo;
-    this.createdAt = data.createdAt;
-    this.updatedAt = data.updatedAt;
+    this._gamesPlayed = Math.max(0, data.gamesPlayed || 0);
+    this._gamesWon = Math.max(0, data.gamesWon || 0);
+    this._totalScore = Math.max(0, data.totalScore || 0);
+    this._bestScore = Math.max(0, data.bestScore || 0);
+    this._totalMatches = Math.max(0, data.totalMatches || 0);
+    this._perfectMatches = Math.max(0, data.perfectMatches || 0);
+    this._maxCombo = Math.max(0, data.maxCombo || 0);
+  }
+
+  get gamesPlayed(): number {
+    return this._gamesPlayed;
+  }
+
+  get gamesWon(): number {
+    return this._gamesWon;
+  }
+
+  get totalScore(): number {
+    return this._totalScore;
+  }
+
+  get bestScore(): number {
+    return this._bestScore;
+  }
+
+  get totalMatches(): number {
+    return this._totalMatches;
+  }
+
+  get perfectMatches(): number {
+    return this._perfectMatches;
+  }
+
+  get maxCombo(): number {
+    return this._maxCombo;
+  }
+
+  get updatedAt(): Date {
+    return this._updatedAt || this.createdAt;
+  }
+
+  set updatedAt(date: Date) {
+    this._updatedAt = date;
   }
 
   /**
    * Calcula el porcentaje de victorias
    */
   getWinRate(): number {
-    if (this.gamesPlayed === 0) return 0;
-    return (this.gamesWon / this.gamesPlayed) * 100;
+    if (this._gamesPlayed === 0) return 0;
+    return (this._gamesWon / this._gamesPlayed) * 100;
   }
 
   /**
    * Calcula el promedio de puntuación
    */
   getAverageScore(): number {
-    if (this.gamesPlayed === 0) return 0;
-    return this.totalScore / this.gamesPlayed;
+    if (this._gamesPlayed === 0) return 0;
+    return this._totalScore / this._gamesPlayed;
   }
 
   /**
-   * Calcula el porcentaje de matches perfectos
+   * Calcula el porcentaje de aciertos perfectos
    */
   getPerfectMatchRate(): number {
-    if (this.totalMatches === 0) return 0;
-    return (this.perfectMatches / this.totalMatches) * 100;
+    if (this._totalMatches === 0) return 0;
+    return (this._perfectMatches / this._totalMatches) * 100;
   }
 
   /**
-   * Registra una partida jugada
+   * Registra los resultados de una partida y actualiza métricas de forma encapsulada
    */
   recordGame(score: number, won: boolean, matches: number, perfectMatches: number, combo: number): void {
-    this.gamesPlayed++;
-    if (won) this.gamesWon++;
+    this._gamesPlayed++;
+    if (won) this._gamesWon++;
     
-    this.totalScore += score;
-    if (score > this.bestScore) {
-      this.bestScore = score;
+    this._totalScore += Math.max(0, score);
+    if (score > this._bestScore) {
+      this._bestScore = score;
     }
 
-    this.totalMatches += matches;
-    this.perfectMatches += perfectMatches;
+    this._totalMatches += Math.max(0, matches);
+    this._perfectMatches += Math.max(0, perfectMatches);
     
-    if (combo > this.maxCombo) {
-      this.maxCombo = combo;
+    if (combo > this._maxCombo) {
+      this._maxCombo = combo;
     }
 
-    this.updatedAt = new Date();
+    this.touch();
   }
 
-  /**
-   * Obtiene nivel de experiencia basado en estadísticas
-   */
   getSkillLevel(): 'Novice' | 'Intermediate' | 'Advanced' | 'Expert' | 'Master' {
     const winRate = this.getWinRate();
     const avgScore = this.getAverageScore();
 
-    if (this.gamesPlayed < 10) return 'Novice';
+    if (this._gamesPlayed < 10) return 'Novice';
     if (winRate < 40 || avgScore < 500) return 'Intermediate';
     if (winRate < 60 || avgScore < 1000) return 'Advanced';
     if (winRate < 80 || avgScore < 1500) return 'Expert';
     return 'Master';
   }
 
-  /**
-   * Verifica si hay logros nuevos
-   */
   checkAchievements(): string[] {
     const achievements: string[] = [];
 
-    if (this.gamesPlayed >= 100) achievements.push('CENTURION');
-    if (this.gamesWon >= 50) achievements.push('WINNER_50');
-    if (this.bestScore >= 2000) achievements.push('HIGH_SCORER');
-    if (this.maxCombo >= 10) achievements.push('COMBO_MASTER');
+    if (this._gamesPlayed >= 100) achievements.push('CENTURION');
+    if (this._gamesWon >= 50) achievements.push('WINNER_50');
+    if (this._bestScore >= 2000) achievements.push('HIGH_SCORER');
+    if (this._maxCombo >= 10) achievements.push('COMBO_MASTER');
     if (this.getWinRate() >= 80) achievements.push('CHAMPION');
 
     return achievements;
@@ -129,13 +155,13 @@ export class PlayerStats implements IPlayerStats {
     return {
       id: this.id,
       userId: this.userId,
-      gamesPlayed: this.gamesPlayed,
-      gamesWon: this.gamesWon,
-      totalScore: this.totalScore,
-      bestScore: this.bestScore,
-      totalMatches: this.totalMatches,
-      perfectMatches: this.perfectMatches,
-      maxCombo: this.maxCombo,
+      gamesPlayed: this._gamesPlayed,
+      gamesWon: this._gamesWon,
+      totalScore: this._totalScore,
+      bestScore: this._bestScore,
+      totalMatches: this._totalMatches,
+      perfectMatches: this._perfectMatches,
+      maxCombo: this._maxCombo,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
     };

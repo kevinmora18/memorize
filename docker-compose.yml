@@ -1,5 +1,5 @@
 services:
-  # ── Base de Datos PostgreSQL ──────────────────────────────────
+  # ── Base de Datos PostgreSQL ─────────────────────────────
   database:
     image: postgres:16-alpine
     container_name: memorize-database
@@ -9,8 +9,6 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cambia_esta_clave}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U memorize_user -d memorize"]
       interval: 5s
@@ -18,8 +16,9 @@ services:
       retries: 10
     networks:
       - memorize-network
+    restart: unless-stopped
 
-  # ── Backend API (Express + Socket.IO + Prisma) ───────────────
+  # ── Backend API (Express + Socket.IO + Prisma) ───────────
   backend:
     build:
       context: ./backend
@@ -29,15 +28,22 @@ services:
       NODE_ENV: production
       PORT: 3000
       DATABASE_URL: postgresql://memorize_user:${POSTGRES_PASSWORD:-cambia_esta_clave}@database:5432/memorize?schema=public
-      FRONTEND_URL: "*"
+      FRONTEND_URL: ${FRONTEND_URL:-*}
+      JWT_SECRET: ${JWT_SECRET:-cambia_este_secreto_jwt}
     depends_on:
       database:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
     networks:
       - memorize-network
     restart: unless-stopped
 
-  # ── Frontend (React + Vite + Nginx) ───────────────────────────
+  # ── Frontend (React + Vite + Nginx) ──────────────────────
   frontend:
     build:
       context: .
@@ -46,7 +52,8 @@ services:
     ports:
       - "80:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     networks:
       - memorize-network
     restart: unless-stopped

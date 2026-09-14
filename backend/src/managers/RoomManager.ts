@@ -1,28 +1,24 @@
 import { GameRoom, IPlayer, GameStatus } from '../models/domain/GameRoom.model';
+import { IRoomManager } from '../core/interfaces/IServices';
 
 /**
  * RoomManager - Gestor de salas (Patrón Singleton)
  * 
- * EXPLICACIÓN POO:
- * - SINGLETON: Solo existe una instancia del gestor de salas
- * - ENCAPSULACIÓN: Oculta el Map de salas y expone métodos seguros
- * - SRP: Solo maneja la creación y gestión de salas
+ * EXPLICACIÓN POO Y SOLID:
+ * - SINGLETON: Garantiza una única instancia compartida del gestor en memoria
+ * - ISP: Implementa la interfaz específica IRoomManager
+ * - ENCAPSULACIÓN: Oculta la estructura Map interna de salas y expone operaciones seguras
+ * - SRP: Exclusivamente responsable del ciclo de vida y búsqueda de salas de juego
  */
-export class RoomManager {
+export class RoomManager implements IRoomManager {
   private static instance: RoomManager;
   private rooms: Map<string, GameRoom>;
 
-  /**
-   * Constructor privado (Patrón Singleton)
-   */
   private constructor() {
     this.rooms = new Map();
     this.startCleanupTask();
   }
 
-  /**
-   * Obtener la instancia única (Singleton)
-   */
   static getInstance(): RoomManager {
     if (!RoomManager.instance) {
       RoomManager.instance = new RoomManager();
@@ -30,9 +26,6 @@ export class RoomManager {
     return RoomManager.instance;
   }
 
-  /**
-   * Crear una nueva sala
-   */
   createRoom(data: {
     name: string;
     code?: string;
@@ -64,10 +57,9 @@ export class RoomManager {
       createdAt: new Date(),
     });
 
-    // Añadir el host como primer jugador
     room.addPlayer({
       id: data.hostId,
-      socketId: '', // Se actualizará cuando se conecte por socket
+      socketId: '',
       name: data.hostName,
       level: data.hostLevel,
       isReady: false,
@@ -82,9 +74,6 @@ export class RoomManager {
     return room;
   }
 
-  /**
-   * Obtener una sala por ID o por Código
-   */
   getRoom(roomIdOrCode: string): GameRoom | undefined {
     if (this.rooms.has(roomIdOrCode)) {
       return this.rooms.get(roomIdOrCode);
@@ -101,17 +90,10 @@ export class RoomManager {
     return undefined;
   }
 
-  /**
-   * Verificar si una sala existe
-   */
   hasRoom(roomIdOrCode: string): boolean {
     return this.getRoom(roomIdOrCode) !== undefined;
   }
 
-
-  /**
-   * Eliminar una sala
-   */
   deleteRoom(roomId: string): boolean {
     const deleted = this.rooms.delete(roomId);
     if (deleted) {
@@ -120,43 +102,30 @@ export class RoomManager {
     return deleted;
   }
 
-  /**
-   * Obtener todas las salas disponibles (públicas y en espera)
-   */
   getAvailableRooms(filters?: {
     mode?: string;
     status?: GameStatus;
   }): GameRoom[] {
     let rooms = Array.from(this.rooms.values());
 
-    // Filtrar salas privadas
     rooms = rooms.filter(room => !room.isPrivate);
 
-    // Filtrar por modo
     if (filters?.mode) {
       rooms = rooms.filter(room => room.mode === filters.mode);
     }
 
-    // Filtrar por estado
     if (filters?.status) {
       rooms = rooms.filter(room => room.getGameState().status === filters.status);
     } else {
-      // Por defecto, solo salas en espera
       rooms = rooms.filter(room => room.getGameState().status === GameStatus.WAITING);
     }
 
-    // Filtrar salas llenas
     rooms = rooms.filter(room => !room.isFull());
-
-    // Ordenar por fecha de creación (más recientes primero)
     rooms.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
     return rooms;
   }
 
-  /**
-   * Unir un jugador a una sala
-   */
   joinRoom(roomId: string, playerData: IPlayer, password?: string): GameRoom {
     const room = this.getRoom(roomId);
 
@@ -164,83 +133,64 @@ export class RoomManager {
       throw new Error('Sala no encontrada');
     }
 
-    // Validar contraseña si es privada
     if (room.isPrivate && !room.validatePassword(password || '')) {
       throw new Error('Contraseña incorrecta');
     }
 
-    // Añadir jugador
     room.addPlayer(playerData);
-
     console.log(`👤 ${playerData.name} se unió a la sala ${roomId}`);
 
     return room;
   }
 
-  /**
-   * Sacar a un jugador de una sala
-   */
   leaveRoom(roomId: string, playerId: string): void {
     const room = this.getRoom(roomId);
-
-    if (!room) {
-      return;
-    }
+    if (!room) return;
 
     room.removePlayer(playerId);
     console.log(`👋 Jugador ${playerId} salió de la sala ${roomId}`);
 
-    // Si la sala quedó vacía, eliminarla
     if (room.isEmpty()) {
       this.deleteRoom(roomId);
     }
   }
 
-  /**
-   * Limpiar salas antiguas (ejecutar periódicamente)
-   */
   private cleanupOldRooms(): void {
     const now = new Date();
-    const maxAge = 60 * 60 * 1000; // 1 hora
+    const maxAge = 60 * 60 * 1000;
 
     this.rooms.forEach((room, roomId) => {
       const age = now.getTime() - room.createdAt.getTime();
       const status = room.getGameState().status;
 
-      // Eliminar salas en espera que tengan más de 1 hora
       if (age > maxAge && status === GameStatus.WAITING) {
         this.deleteRoom(roomId);
       }
 
-      // Eliminar salas vacías
       if (room.isEmpty()) {
         this.deleteRoom(roomId);
       }
     });
   }
 
-  /**
-   * Iniciar tarea de limpieza periódica
-   */
   private startCleanupTask(): void {
     setInterval(() => {
       this.cleanupOldRooms();
-    }, 10 * 60 * 1000); // Cada 10 minutos
+    }, 10 * 60 * 1000);
 
     console.log('🧹 Tarea de limpieza de salas iniciada');
   }
 
-  /**
-   * Generar ID único para sala
-   */
   private generateRoomId(): string {
     return `room_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 
-  /**
-   * Obtener estadísticas del gestor
-   */
-  getStats() {
+  getStats(): {
+    totalRooms: number;
+    waitingRooms: number;
+    playingRooms: number;
+    totalPlayers: number;
+  } {
     return {
       totalRooms: this.rooms.size,
       waitingRooms: Array.from(this.rooms.values()).filter(

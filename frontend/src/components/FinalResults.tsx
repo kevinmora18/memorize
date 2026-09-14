@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Trophy, Home, Star, Zap } from 'lucide-react';
 import type { Room } from '../App';
@@ -15,8 +16,41 @@ const teamColors = [
   { bg: 'from-yellow-600 to-amber-600', glow: '#ffd700' },
 ];
 
+function hashPlayerString(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) hash = (hash << 5) - hash + str.charCodeAt(i);
+  return Math.abs(hash);
+}
+
 export function FinalResults({ room, onBackToLobby }: FinalResultsProps) {
-  const teams = [1,2,3,4,5].filter(teamId => room.players.filter((p: any) => p.teamId === teamId).length === 2).map(teamId => ({ teamId, players: room.players.filter((p: any) => p.teamId === teamId), score: Math.floor(Math.random() * 300) + 200, matches: Math.floor(Math.random() * 30) + 20, bestStreak: Math.floor(Math.random() * 8) + 3 })).sort((a,b) => b.score - a.score);
+  const [teams] = useState(() =>
+    [1, 2, 3, 4, 5]
+      .filter(teamId => room.players.filter((p: any) => p.teamId === teamId).length > 0)
+      .map(teamId => {
+        const players = room.players.filter((p: any) => p.teamId === teamId);
+        const seed = hashPlayerString(players.map((p: any) => p.id).join('|')) || 1;
+        return {
+          teamId,
+          players,
+          score: (seed % 500) + 200,
+          matches: (seed % 25) + 20,
+          bestStreak: (seed % 7) + 3,
+        };
+      })
+      .sort((a, b) => b.score - a.score)
+  );
+
+  if (teams.length === 0) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-950 via-purple-950 to-black flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-4xl mb-4">PARTIDA FINALIZADA</h1>
+          <p className="text-gray-400 mb-8">No hay equipos registrados.</p>
+          <button onClick={onBackToLobby} className="px-8 py-3 bg-gradient-to-r from-cyan-600 to-purple-600 rounded-2xl">Volver al Lobby</button>
+        </div>
+      </div>
+    );
+  }
 
   const winner = teams[0];
   const loser = teams[teams.length - 1];

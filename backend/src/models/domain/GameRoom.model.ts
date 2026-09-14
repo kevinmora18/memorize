@@ -1,11 +1,16 @@
 /**
  * GameRoom Domain Model - Modelo de dominio para Salas de Juego
  * 
- * EXPLICACIÓN POO:
- * - ENCAPSULACIÓN: Agrupa todos los datos y comportamientos de una sala
- * - ABSTRACCIÓN: Representa el concepto de "Sala de Juego"
- * - ESTADO: Mantiene el estado de la sala y sus jugadores
+ * EXPLICACIÓN POO Y SOLID:
+ * - HERENCIA: GameRoom extiende BaseEntity
+ * - POLIMORFISMO: Reglas de matching y conteo de volteos delegados a IGameModeStrategy polimórfico
+ * - OCP: Nuevos modos funcionan en la sala sin modificar su lógica interna
+ * - ENCAPSULACIÓN: Propiedades y mapa de jugadores protegidos
+ * - SRP: Gestiona exclusivamente el ciclo de vida de la sesión de sala y sus jugadores
  */
+
+import { BaseEntity } from '../../core/BaseEntity';
+import { GameModeFactory } from '../strategies/GameModeStrategy';
 
 export interface IPlayer {
   id: string;
@@ -50,114 +55,137 @@ export interface IGameRoomData {
   createdAt: Date;
 }
 
-
 /**
- * Clase Player - Representa un jugador en la sala
+ * Clase Player - Representa un jugador en la sala con encapsulación
  */
 export class Player implements IPlayer {
-  id: string;
-  socketId: string;
-  name: string;
-  level: number;
-  isReady: boolean;
-  score: number;
-  matches: number;
-  isConnected: boolean;
+  readonly id: string;
+  private _socketId: string;
+  private _name: string;
+  private _level: number;
+  private _isReady: boolean;
+  private _score: number;
+  private _matches: number;
+  private _isConnected: boolean;
 
   constructor(data: IPlayer) {
     this.id = data.id;
-    this.socketId = data.socketId;
-    this.name = data.name;
-    this.level = data.level;
-    this.isReady = data.isReady || false;
-    this.score = data.score || 0;
-    this.matches = data.matches || 0;
-    this.isConnected = data.isConnected !== undefined ? data.isConnected : true;
+    this._socketId = data.socketId;
+    this._name = data.name;
+    this._level = data.level;
+    this._isReady = data.isReady || false;
+    this._score = data.score || 0;
+    this._matches = data.matches || 0;
+    this._isConnected = data.isConnected !== undefined ? data.isConnected : true;
   }
 
-  /**
-   * Marca al jugador como listo
-   */
+  get socketId(): string {
+    return this._socketId;
+  }
+
+  get name(): string {
+    return this._name;
+  }
+
+  get level(): number {
+    return this._level;
+  }
+
+  get isReady(): boolean {
+    return this._isReady;
+  }
+
+  get score(): number {
+    return this._score;
+  }
+
+  set score(val: number) {
+    this._score = Math.max(0, val);
+  }
+
+  get matches(): number {
+    return this._matches;
+  }
+
+  set matches(val: number) {
+    this._matches = Math.max(0, val);
+  }
+
+  get isConnected(): boolean {
+    return this._isConnected;
+  }
+
   setReady(ready: boolean): void {
-    this.isReady = ready;
+    this._isReady = ready;
   }
 
-  /**
-   * Actualiza el puntaje
-   */
   addScore(points: number): void {
-    this.score += points;
+    this._score += points;
   }
 
-  /**
-   * Incrementa matches
-   */
   addMatch(): void {
-    this.matches++;
+    this._matches++;
   }
 
-  /**
-   * Desconecta al jugador
-   */
+  resetGameStats(): void {
+    this._score = 0;
+    this._matches = 0;
+    this._isReady = false;
+  }
+
   disconnect(): void {
-    this.isConnected = false;
+    this._isConnected = false;
   }
 
-  /**
-   * Reconecta al jugador
-   */
   reconnect(newSocketId: string): void {
-    this.socketId = newSocketId;
-    this.isConnected = true;
+    this._socketId = newSocketId;
+    this._isConnected = true;
   }
 
   toJSON(): IPlayer {
     return {
       id: this.id,
-      socketId: this.socketId,
-      name: this.name,
-      level: this.level,
-      isReady: this.isReady,
-      score: this.score,
-      matches: this.matches,
-      isConnected: this.isConnected,
+      socketId: this._socketId,
+      name: this._name,
+      level: this._level,
+      isReady: this._isReady,
+      score: this._score,
+      matches: this._matches,
+      isConnected: this._isConnected,
     };
   }
 }
 
 /**
- * Clase GameRoom - Representa una sala de juego completa
+ * Clase GameRoom con Herencia de BaseEntity y patrón Strategy polimórfico
  */
-export class GameRoom {
-  readonly id: string;
+export class GameRoom extends BaseEntity<any> {
   readonly code: string;
-  name: string;
-  hostId: string;
-  hostName: string;
-  maxPlayers: number;
-  mode: string;
-  cardCount: number;
-  difficulty: string;
-  isPrivate: boolean;
-  password?: string;
-  readonly createdAt: Date;
+  private _name: string;
+  private _hostId: string;
+  private _hostName: string;
+  private _maxPlayers: number;
+  private _mode: string;
+  private _cardCount: number;
+  private _difficulty: string;
+  private _isPrivate: boolean;
+  private _password?: string;
 
   private players: Map<string, Player>;
   private gameState: IGameState;
 
   constructor(data: IGameRoomData) {
-    this.id = data.id;
+    super(data.id, data.createdAt);
     this.code = data.code || Math.random().toString(36).substring(2, 8).toUpperCase();
-    this.name = data.name;
-    this.hostId = data.hostId;
-    this.hostName = data.hostName;
-    this.maxPlayers = data.maxPlayers;
-    this.mode = data.mode;
-    this.cardCount = data.cardCount || 12;
-    this.difficulty = data.difficulty;
-    this.isPrivate = data.isPrivate;
-    this.password = data.password;
-    this.createdAt = data.createdAt;
+    this._name = data.name;
+    this._hostId = data.hostId;
+    this._hostName = data.hostName;
+    this._maxPlayers = data.maxPlayers;
+    this._mode = data.mode;
+    this._cardCount = data.cardCount || 12;
+    this._difficulty = data.difficulty;
+    this._isPrivate = data.isPrivate;
+    this._password = data.password;
 
     this.players = new Map();
     this.gameState = {
@@ -172,6 +200,17 @@ export class GameRoom {
     };
   }
 
+  // Getters y setters controlados
+  get name(): string { return this._name; }
+  get hostId(): string { return this._hostId; }
+  get hostName(): string { return this._hostName; }
+  get maxPlayers(): number { return this._maxPlayers; }
+  get mode(): string { return this._mode; }
+  set mode(newMode: string) { this._mode = newMode; }
+  get cardCount(): number { return this._cardCount; }
+  get difficulty(): string { return this._difficulty; }
+  get isPrivate(): boolean { return this._isPrivate; }
+  get password(): string | undefined { return this._password; }
 
   /**
    * GESTIÓN DE JUGADORES
@@ -193,11 +232,10 @@ export class GameRoom {
   removePlayer(playerId: string): void {
     this.players.delete(playerId);
 
-    // Si era el host, asignar nuevo host
-    if (this.hostId === playerId && this.players.size > 0) {
+    if (this._hostId === playerId && this.players.size > 0) {
       const newHost = Array.from(this.players.values())[0];
-      this.hostId = newHost.id;
-      this.hostName = newHost.name;
+      this._hostId = newHost.id;
+      this._hostName = newHost.name;
     }
   }
 
@@ -218,7 +256,7 @@ export class GameRoom {
   }
 
   isFull(): boolean {
-    return this.players.size >= this.maxPlayers;
+    return this.players.size >= this._maxPlayers;
   }
 
   isEmpty(): boolean {
@@ -241,16 +279,17 @@ export class GameRoom {
     if (this.players.size < 2) return false;
 
     return Array.from(this.players.values())
-      .filter(p => p.id !== this.hostId) // El host no necesita estar listo
+      .filter(p => p.id !== this._hostId)
       .every(p => p.isReady);
   }
 
   /**
-   * GESTIÓN DEL JUEGO
+   * GESTIÓN DEL JUEGO (POLIMORFISMO & OCP)
    */
 
   getRequiredFlipsCount(): number {
-    return this.mode === 'triads' ? 3 : 2;
+    const strategy = GameModeFactory.getStrategy(this._mode);
+    return strategy.getRequiredFlipsCount();
   }
 
   startGame(cards: any[], bypassReadyCheck = false): void {
@@ -273,11 +312,8 @@ export class GameRoom {
       scores: new Map(Array.from(this.players.keys()).map(id => [id, 0])),
     };
 
-    // Resetear estados de jugadores
     this.players.forEach(player => {
-      player.score = 0;
-      player.matches = 0;
-      player.setReady(false);
+      player.resetGameStats();
     });
   }
 
@@ -303,6 +339,10 @@ export class GameRoom {
     this.gameState.flippedCards.push(cardIndex);
   }
 
+  /**
+   * POLIMORFISMO & OCP:
+   * Evalúa la coincidencia según la estrategia de modo de juego activa
+   */
   checkMatch(): { isMatch: boolean; cardIndexes: number[] } {
     const required = this.getRequiredFlipsCount();
     if (this.gameState.flippedCards.length !== required) {
@@ -312,25 +352,8 @@ export class GameRoom {
     const flippedIndexes = [...this.gameState.flippedCards];
     const flippedCardObjects = flippedIndexes.map(idx => this.gameState.cards[idx]).filter(Boolean);
 
-    if (flippedCardObjects.length !== required) {
-      return { isMatch: false, cardIndexes: flippedIndexes };
-    }
-
-    const first = flippedCardObjects[0];
-    let isMatch = false;
-
-    if (first.groupId !== undefined) {
-      isMatch = flippedCardObjects.every(c => c.groupId === first.groupId);
-    } else if (first.symbol !== undefined) {
-      isMatch = flippedCardObjects.every(c => c.symbol === first.symbol);
-    } else {
-      isMatch = flippedCardObjects.every(c => c.id === first.id);
-    }
-
-    return {
-      isMatch,
-      cardIndexes: flippedIndexes,
-    };
+    const strategy = GameModeFactory.getStrategy(this._mode);
+    return strategy.checkMatch(flippedCardObjects, flippedIndexes);
   }
 
   registerMatch(playerId: string, cardIndexes: number[]): void {
@@ -370,7 +393,6 @@ export class GameRoom {
   finishGame(): string | null {
     this.gameState.status = GameStatus.FINISHED;
 
-    // Determinar ganador
     let winnerId: string | null = null;
     let maxScore = -1;
 
@@ -383,10 +405,6 @@ export class GameRoom {
 
     return winnerId;
   }
-
-  /**
-   * GESTIÓN DE CONEXIÓN
-   */
 
   disconnectPlayer(playerId: string): void {
     const player = this.players.get(playerId);
@@ -402,33 +420,25 @@ export class GameRoom {
     }
   }
 
-  /**
-   * VALIDACIÓN DE CONTRASEÑA
-   */
-
   validatePassword(password: string): boolean {
-    if (!this.isPrivate) return true;
-    return this.password === password;
+    if (!this._isPrivate) return true;
+    return this._password === password;
   }
-
-  /**
-   * CONVERSIÓN A JSON
-   */
 
   toJSON() {
     return {
       id: this.id,
       code: this.code,
-      name: this.name,
-      hostId: this.hostId,
-      hostName: this.hostName,
-      maxPlayers: this.maxPlayers,
+      name: this._name,
+      hostId: this._hostId,
+      hostName: this._hostName,
+      maxPlayers: this._maxPlayers,
       currentPlayers: this.players.size,
-      mode: this.mode,
-      gameMode: this.mode,
-      cardCount: this.cardCount,
-      difficulty: this.difficulty,
-      isPrivate: this.isPrivate,
+      mode: this._mode,
+      gameMode: this._mode,
+      cardCount: this._cardCount,
+      difficulty: this._difficulty,
+      isPrivate: this._isPrivate,
       status: this.gameState.status,
       isStarted: this.gameState.status === GameStatus.PLAYING,
       createdAt: this.createdAt,
@@ -436,5 +446,4 @@ export class GameRoom {
       gameState: this.gameState,
     };
   }
-
 }

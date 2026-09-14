@@ -1,23 +1,22 @@
 import { PrismaClient, PlayerStats as PrismaPlayerStats } from '@prisma/client';
 import { BaseRepository } from '../core/BaseRepository';
+import { IPlayerStatsRepository } from '../core/interfaces/IRepository';
 import { PlayerStats, IPlayerStats } from '../models/domain/PlayerStats.model';
 
 /**
  * PlayerStatsRepository - Repositorio para estadísticas de jugadores
  * 
- * EXPLICACIÓN POO:
- * - HERENCIA: Extiende BaseRepository
- * - SRP: Solo maneja acceso a datos de estadísticas
- * - ABSTRACCIÓN: Oculta Prisma detrás de métodos simples
+ * EXPLICACIÓN POO Y SOLID:
+ * - HERENCIA: Extiende BaseRepository<PlayerStats, string>
+ * - ISP: Implementa la interfaz específica IPlayerStatsRepository
+ * - LSP: Respeta la sustituibilidad de BaseRepository
+ * - SRP: Solo maneja persistencia de estadísticas
  */
-export class PlayerStatsRepository extends BaseRepository<PlayerStats, string> {
+export class PlayerStatsRepository extends BaseRepository<PlayerStats, string> implements IPlayerStatsRepository {
   constructor(prisma: PrismaClient) {
     super(prisma, 'PlayerStats');
   }
 
-  /**
-   * Convierte registro de Prisma a modelo de dominio
-   */
   private toDomain(prismaStats: PrismaPlayerStats): PlayerStats {
     return new PlayerStats({
       id: prismaStats.id,
@@ -34,9 +33,6 @@ export class PlayerStatsRepository extends BaseRepository<PlayerStats, string> {
     });
   }
 
-  /**
-   * Buscar estadísticas por ID
-   */
   async findById(id: string): Promise<PlayerStats | null> {
     this.log(`Buscando estadísticas por ID: ${id}`);
     const stats = await this.prisma.playerStats.findUnique({
@@ -45,9 +41,6 @@ export class PlayerStatsRepository extends BaseRepository<PlayerStats, string> {
     return stats ? this.toDomain(stats) : null;
   }
 
-  /**
-   * Buscar estadísticas por userId
-   */
   async findByUserId(userId: string): Promise<PlayerStats | null> {
     this.log(`Buscando estadísticas del usuario: ${userId}`);
     const stats = await this.prisma.playerStats.findUnique({
@@ -56,10 +49,7 @@ export class PlayerStatsRepository extends BaseRepository<PlayerStats, string> {
     return stats ? this.toDomain(stats) : null;
   }
 
-  /**
-   * Crear nuevas estadísticas
-   */
-  async create(data: Partial<IPlayerStats>): Promise<PlayerStats> {
+  async create(data: Partial<PlayerStats | IPlayerStats>): Promise<PlayerStats> {
     this.log(`Creando estadísticas para usuario: ${data.userId}`);
     const stats = await this.prisma.playerStats.create({
       data: {
@@ -76,30 +66,24 @@ export class PlayerStatsRepository extends BaseRepository<PlayerStats, string> {
     return this.toDomain(stats);
   }
 
-  /**
-   * Actualizar estadísticas
-   */
-  async update(id: string, data: Partial<IPlayerStats>): Promise<PlayerStats> {
+  async update(id: string, data: Partial<PlayerStats | IPlayerStats>): Promise<PlayerStats> {
     this.log(`Actualizando estadísticas: ${id}`);
     const stats = await this.prisma.playerStats.update({
       where: { id },
       data: {
-        gamesPlayed: data.gamesPlayed,
-        gamesWon: data.gamesWon,
-        totalScore: data.totalScore,
-        bestScore: data.bestScore,
-        totalMatches: data.totalMatches,
-        perfectMatches: data.perfectMatches,
-        maxCombo: data.maxCombo,
+        ...(data.gamesPlayed !== undefined && { gamesPlayed: data.gamesPlayed }),
+        ...(data.gamesWon !== undefined && { gamesWon: data.gamesWon }),
+        ...(data.totalScore !== undefined && { totalScore: data.totalScore }),
+        ...(data.bestScore !== undefined && { bestScore: data.bestScore }),
+        ...(data.totalMatches !== undefined && { totalMatches: data.totalMatches }),
+        ...(data.perfectMatches !== undefined && { perfectMatches: data.perfectMatches }),
+        ...(data.maxCombo !== undefined && { maxCombo: data.maxCombo }),
         updatedAt: new Date(),
       },
     });
     return this.toDomain(stats);
   }
 
-  /**
-   * Eliminar estadísticas
-   */
   async delete(id: string): Promise<void> {
     this.log(`Eliminando estadísticas: ${id}`);
     await this.prisma.playerStats.delete({
@@ -107,9 +91,6 @@ export class PlayerStatsRepository extends BaseRepository<PlayerStats, string> {
     });
   }
 
-  /**
-   * Listar todas las estadísticas
-   */
   async findAll(options?: {
     skip?: number;
     take?: number;
@@ -124,9 +105,6 @@ export class PlayerStatsRepository extends BaseRepository<PlayerStats, string> {
     return statsList.map(stats => this.toDomain(stats));
   }
 
-  /**
-   * Obtener top jugadores por criterio
-   */
   async getTopPlayers(
     criteria: 'bestScore' | 'gamesWon' | 'totalScore',
     limit: number = 10
@@ -139,21 +117,18 @@ export class PlayerStatsRepository extends BaseRepository<PlayerStats, string> {
     return statsList.map(stats => this.toDomain(stats));
   }
 
-  /**
-   * Crear o actualizar estadísticas (upsert)
-   */
   async upsert(userId: string, data: Partial<IPlayerStats>): Promise<PlayerStats> {
     this.log(`Upsert estadísticas para usuario: ${userId}`);
     const stats = await this.prisma.playerStats.upsert({
       where: { userId },
       update: {
-        gamesPlayed: data.gamesPlayed,
-        gamesWon: data.gamesWon,
-        totalScore: data.totalScore,
-        bestScore: data.bestScore,
-        totalMatches: data.totalMatches,
-        perfectMatches: data.perfectMatches,
-        maxCombo: data.maxCombo,
+        ...(data.gamesPlayed !== undefined && { gamesPlayed: data.gamesPlayed }),
+        ...(data.gamesWon !== undefined && { gamesWon: data.gamesWon }),
+        ...(data.totalScore !== undefined && { totalScore: data.totalScore }),
+        ...(data.bestScore !== undefined && { bestScore: data.bestScore }),
+        ...(data.totalMatches !== undefined && { totalMatches: data.totalMatches }),
+        ...(data.perfectMatches !== undefined && { perfectMatches: data.perfectMatches }),
+        ...(data.maxCombo !== undefined && { maxCombo: data.maxCombo }),
         updatedAt: new Date(),
       },
       create: {

@@ -13,6 +13,8 @@ import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 
 // Importar Container (Dependency Injection)
@@ -51,11 +53,33 @@ async function bootstrap() {
   const httpServer = createServer(app);
 
   // Middleware
+  app.use(helmet());
   app.use(cors({
     origin: true,
     credentials: true,
   }));
-  app.use(express.json());
+  app.use(express.json({ limit: '100kb' }));
+
+  // Rate limiting global (protección básica ante abuso)
+  const globalLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 300,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Demasiadas solicitudes. Intenta de nuevo más tarde.' },
+  });
+  app.use(globalLimiter);
+
+  // Rate limiting específico para autenticación (evita fuerza bruta)
+  const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 20,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Demasiados intentos de acceso. Intenta de nuevo en 15 minutos.' },
+    skipSuccessfulRequests: true,
+  });
+  app.use('/api/auth', authLimiter);
 
 
   // ============================================

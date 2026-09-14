@@ -1,58 +1,26 @@
 import { Request, Response, NextFunction } from 'express';
-import { AdminService } from '../services/AdminService';
+import { BaseController } from '../core/BaseController';
+import { IAdminService } from '../core/interfaces/IServices';
+import { AuthenticatedRequest } from '../core/AuthMiddleware';
 
 /**
  * AdminController - Controlador para rutas de administración
  *
- * EXPLICACIÓN POO:
- * - SRP: Solo maneja peticiones HTTP de administración
- * - DEPENDENCY INJECTION: Recibe el servicio como dependencia
- * - THIN CONTROLLER: Delega toda la lógica al servicio
+ * EXPLICACIÓN POO Y SOLID:
+ * - HERENCIA: Extiende BaseController
+ * - DIP (Dependency Inversion Principle): Depende de la interfaz IAdminService
+ * - SRP: Encargado únicamente de la capa HTTP de administración
+ * - SEGURIDAD: La identidad del admin proviene del JWT (req.user), nunca del body
  */
-export class AdminController {
-  private adminService: AdminService;
+export class AdminController extends BaseController {
+  private adminService: IAdminService;
 
-  constructor(adminService: AdminService) {
+  constructor(adminService: IAdminService) {
+    super('AdminController');
     this.adminService = adminService;
   }
 
-  // ────────────────────────────────────────────
-  // MIDDLEWARE de verificación de admin
-  // ────────────────────────────────────────────
-
-  /**
-   * Middleware: verifica que adminId en el body/query sea un admin válido
-   */
-  requireAdmin = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try {
-      const adminId = req.body.adminId ?? req.query.adminId as string;
-
-      if (!adminId) {
-        res.status(401).json({ error: 'ID de administrador requerido' });
-        return;
-      }
-
-      const isAdmin = await this.adminService.verifyAdmin(adminId);
-
-      if (!isAdmin) {
-        res.status(403).json({ error: 'Acceso denegado: se requiere rol de administrador' });
-        return;
-      }
-
-      next();
-    } catch (error) {
-      next(error);
-    }
-  };
-
-  // ────────────────────────────────────────────
-  // USUARIOS
-  // ────────────────────────────────────────────
-
-  /**
-   * GET /api/admin/users
-   */
-  listUsers = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  listUsers = async (req: Request, res: Response): Promise<void> => {
     try {
       const { page, limit, search, role, banned } = req.query;
 
@@ -64,7 +32,7 @@ export class AdminController {
         banned: banned !== undefined ? banned === 'true' : undefined,
       });
 
-      res.json({
+      this.sendSuccess(res, {
         users: result.users,
         pagination: {
           total: result.total,
@@ -74,271 +42,252 @@ export class AdminController {
         },
       });
     } catch (error) {
-      next(error);
+      this.handleHttpError(res, error, 'Error listando usuarios');
     }
   };
 
-  /**
-   * GET /api/admin/users/:id
-   */
-  getUserDetail = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  getUserDetail = async (req: Request, res: Response): Promise<void> => {
     try {
       const user = await this.adminService.getUserDetail(req.params.id as string);
-      res.json(user);
+      this.sendSuccess(res, user);
     } catch (error: any) {
-      if (error.message.includes('no encontrado')) {
-        res.status(404).json({ error: error.message });
-      } else {
-        next(error);
-      }
+      this.handleHttpError(res, error, 'Error obteniendo detalle de usuario');
     }
   };
 
-  /**
-   * PUT /api/admin/users/:id/role
-   */
-  changeUserRole = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  changeUserRole = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
-      const { role, adminId } = req.body;
+      const { role } = req.body;
+      const adminId = req.user!.userId;
 
       if (!role) {
-        res.status(400).json({ error: 'Rol requerido' });
+        this.sendError(res, 'Rol requerido', 400);
         return;
       }
 
       const user = await this.adminService.changeUserRole(req.params.id as string, role, adminId);
-      res.json(user.toJSON());
+      this.sendSuccess(res, user.toJSON());
     } catch (error: any) {
-      if (error.message.includes('inválido')) {
-        res.status(400).json({ error: error.message });
-      } else if (error.message.includes('no encontrado')) {
-        res.status(404).json({ error: error.message });
-      } else {
-        next(error);
-      }
+      this.handleHttpError(res, error, 'Error cambiando rol de usuario');
     }
   };
 
-  /**
-   * PUT /api/admin/users/:id/currency
-   */
-  updateUserCurrency = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  updateUserCurrency = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
-      const { coins, gems, adminId } = req.body;
-
+      const { coins, gems } = req.body;
+      const adminId = req.user!.userId;
       const user = await this.adminService.updateUserCurrency(req.params.id as string, coins, gems, adminId);
-      res.json(user.toJSON());
+      this.sendSuccess(res, user.toJSON());
     } catch (error: any) {
-      if (error.message.includes('no encontrado')) {
-        res.status(404).json({ error: error.message });
-      } else {
-        next(error);
-      }
+      this.handleHttpError(res, error, 'Error modificando fondos de usuario');
     }
   };
 
-  /**
-   * DELETE /api/admin/users/:id
-   */
-  deleteUser = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  deleteUser = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
-      const { adminId } = req.body;
+      const adminId = req.user!.userId;
       await this.adminService.deleteUser(req.params.id as string, adminId);
-      res.json({ message: 'Usuario eliminado correctamente' });
+      this.sendSuccess(res, { message: 'Usuario eliminado correctamente' });
     } catch (error: any) {
-      if (error.message.includes('no encontrado')) {
-        res.status(404).json({ error: error.message });
-      } else {
-        next(error);
-      }
+      this.handleHttpError(res, error, 'Error eliminando usuario');
     }
   };
 
-  // ────────────────────────────────────────────
-  // ESTADÍSTICAS Y ANALÍTICAS
-  // ────────────────────────────────────────────
+  banUser = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+      const { reason, duration } = req.body;
+      const adminId = req.user!.userId;
 
-  /**
-   * GET /api/admin/stats
-   */
-  getStats = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+      if (!reason) {
+        this.sendError(res, 'Razón de baneo requerida', 400);
+        return;
+      }
+
+      const user = await this.adminService.banUser(
+        req.params.id as string,
+        reason,
+        duration ? parseInt(duration) : undefined,
+        adminId
+      );
+      this.sendSuccess(res, user.toJSON());
+    } catch (error: any) {
+      this.handleHttpError(res, error, 'Error baneando usuario');
+    }
+  };
+
+  unbanUser = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+      const adminId = req.user!.userId;
+      const user = await this.adminService.unbanUser(req.params.id as string, adminId);
+      this.sendSuccess(res, user.toJSON());
+    } catch (error: any) {
+      this.handleHttpError(res, error, 'Error desbaneando usuario');
+    }
+  };
+
+  getBannedUsers = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const users = await this.adminService.getBannedUsers();
+      this.sendSuccess(res, users.map(u => u.toJSON()));
+    } catch (error: any) {
+      this.handleHttpError(res, error, 'Error obteniendo usuarios baneados');
+    }
+  };
+
+  listMatches = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { page, limit, mode, userId } = req.query;
+
+      const result = await this.adminService.getAllMatches({
+        page: page ? parseInt(page as string) : undefined,
+        limit: limit ? parseInt(limit as string) : undefined,
+        mode: mode as string | undefined,
+        userId: userId as string | undefined,
+      });
+
+      this.sendSuccess(res, {
+        matches: result.matches.map(m => (m as any).toJSON ? (m as any).toJSON() : m),
+        total: result.total,
+      });
+    } catch (error) {
+      this.handleHttpError(res, error, 'Error listando partidas');
+    }
+  };
+
+  getStats = async (req: Request, res: Response): Promise<void> => {
     try {
       const stats = await this.adminService.getGeneralStats();
-      res.json(stats);
+      this.sendSuccess(res, stats);
     } catch (error) {
-      next(error);
+      this.handleHttpError(res, error, 'Error obteniendo estadísticas generales');
     }
   };
 
-  /**
-   * GET /api/admin/analytics
-   */
-  getAnalytics = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  getAnalytics = async (req: Request, res: Response): Promise<void> => {
     try {
       const { period = '7d' } = req.query;
       const analytics = await this.adminService.getAnalytics(period as string);
-      res.json(analytics);
+      this.sendSuccess(res, analytics);
     } catch (error) {
-      next(error);
+      this.handleHttpError(res, error, 'Error obteniendo analíticas');
     }
   };
 
-  // ────────────────────────────────────────────
-  // ANUNCIOS
-  // ────────────────────────────────────────────
-
-  /**
-   * GET /api/admin/announcements
-   */
-  listAnnouncements = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  listAnnouncements = async (req: Request, res: Response): Promise<void> => {
     try {
       const announcements = await this.adminService.listAnnouncements();
-      res.json(announcements);
+      this.sendSuccess(res, announcements);
     } catch (error) {
-      next(error);
+      this.handleHttpError(res, error, 'Error listando anuncios');
     }
   };
 
-  /**
-   * POST /api/admin/announcements
-   */
-  createAnnouncement = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  createAnnouncement = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
-      const { title, message, type, expiresAt, adminId } = req.body;
+      const { title, message, type, expiresAt } = req.body;
+      const adminId = req.user!.userId;
 
       if (!title || !message) {
-        res.status(400).json({ error: 'Título y mensaje requeridos' });
+        this.sendError(res, 'Título y mensaje requeridos', 400);
         return;
       }
 
       const announcement = await this.adminService.createAnnouncement({
         title, message, type, expiresAt, adminId,
       });
-      res.json(announcement);
+      this.sendSuccess(res, announcement);
     } catch (error) {
-      next(error);
+      this.handleHttpError(res, error, 'Error creando anuncio');
     }
   };
 
-  /**
-   * PUT /api/admin/announcements/:id/toggle
-   */
-  toggleAnnouncement = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  toggleAnnouncement = async (req: Request, res: Response): Promise<void> => {
     try {
       const { isActive } = req.body;
       const announcement = await this.adminService.toggleAnnouncement(req.params.id as string, isActive);
-      res.json(announcement);
+      this.sendSuccess(res, announcement);
     } catch (error) {
-      next(error);
+      this.handleHttpError(res, error, 'Error cambiando estado del anuncio');
     }
   };
 
-  /**
-   * DELETE /api/admin/announcements/:id
-   */
-  deleteAnnouncement = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  deleteAnnouncement = async (req: Request, res: Response): Promise<void> => {
     try {
       await this.adminService.deleteAnnouncement(req.params.id as string);
-      res.json({ message: 'Anuncio eliminado correctamente' });
+      this.sendSuccess(res, { message: 'Anuncio eliminado correctamente' });
     } catch (error) {
-      next(error);
+      this.handleHttpError(res, error, 'Error eliminando anuncio');
     }
   };
 
-  // ────────────────────────────────────────────
-  // PROMOCIONES
-  // ────────────────────────────────────────────
-
-  /**
-   * GET /api/admin/promotions
-   */
-  listPromotions = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  listPromotions = async (req: Request, res: Response): Promise<void> => {
     try {
       const promotions = await this.adminService.listPromotions();
-      res.json(promotions);
+      this.sendSuccess(res, promotions);
     } catch (error) {
-      next(error);
+      this.handleHttpError(res, error, 'Error listando promociones');
     }
   };
 
-  /**
-   * POST /api/admin/promotions
-   */
-  createPromotion = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  createPromotion = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
-      const { name, description, type, value, startDate, endDate, adminId } = req.body;
+      const { name, description, type, value, startDate, endDate } = req.body;
+      const adminId = req.user!.userId;
 
       if (!name || !type || value === undefined || !endDate) {
-        res.status(400).json({ error: 'Datos incompletos' });
+        this.sendError(res, 'Datos incompletos para crear promoción', 400);
         return;
       }
 
       const promotion = await this.adminService.createPromotion({
         name, description, type, value, startDate, endDate, adminId,
       });
-      res.json(promotion);
+      this.sendSuccess(res, promotion);
     } catch (error) {
-      next(error);
+      this.handleHttpError(res, error, 'Error creando promoción');
     }
   };
 
-  /**
-   * DELETE /api/admin/promotions/:id
-   */
-  deletePromotion = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  deletePromotion = async (req: Request, res: Response): Promise<void> => {
     try {
       await this.adminService.deletePromotion(req.params.id as string);
-      res.json({ message: 'Promoción eliminada correctamente' });
+      this.sendSuccess(res, { message: 'Promoción eliminada correctamente' });
     } catch (error) {
-      next(error);
+      this.handleHttpError(res, error, 'Error eliminando promoción');
     }
   };
 
-  // ────────────────────────────────────────────
-  // ACCIONES MASIVAS
-  // ────────────────────────────────────────────
-
-  /**
-   * POST /api/admin/give-currency-all
-   */
-  giveCurrencyToAll = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  giveCurrencyToAll = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
-      const { coins, gems, adminId } = req.body;
+      const { coins, gems } = req.body;
+      const adminId = req.user!.userId;
 
-      if (!coins && !gems) {
-        res.status(400).json({ error: 'Debe especificar coins o gems' });
+      if (coins === undefined && gems === undefined) {
+        this.sendError(res, 'Debe especificar coins o gems', 400);
         return;
       }
 
       const result = await this.adminService.giveCurrencyToAll(coins, gems, adminId);
-      res.json({
+      this.sendSuccess(res, {
         message: `Monedas otorgadas a ${result.affectedUsers} usuarios`,
         affectedUsers: result.affectedUsers,
       });
     } catch (error) {
-      next(error);
+      this.handleHttpError(res, error, 'Error otorgando monedas masivas');
     }
   };
 
-  // ────────────────────────────────────────────
-  // PARTIDAS (admin view usa MatchService)
-  // ────────────────────────────────────────────
-
-  /**
-   * GET /api/admin/logs
-   */
-  getLogs = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  getLogs = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { page, limit, action, adminId } = req.query;
+      const { page, limit, action } = req.query;
 
       const result = await this.adminService.getLogs({
         page: page ? parseInt(page as string) : undefined,
         limit: limit ? parseInt(limit as string) : undefined,
         action: action as string | undefined,
-        adminId: adminId as string | undefined,
       });
 
-      res.json({
+      this.sendSuccess(res, {
         logs: result.logs,
         pagination: {
           total: result.total,
@@ -348,7 +297,7 @@ export class AdminController {
         },
       });
     } catch (error) {
-      next(error);
+      this.handleHttpError(res, error, 'Error obteniendo logs de auditoría');
     }
   };
 }

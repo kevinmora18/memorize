@@ -1,29 +1,27 @@
 import { Request, Response, NextFunction } from 'express';
-import { RoomManager } from '../managers/RoomManager';
+import { BaseController } from '../core/BaseController';
+import { IRoomManager } from '../core/interfaces/IServices';
+import { IUserRepository } from '../core/interfaces/IRepository';
 import { GameStatus } from '../models/domain/GameRoom.model';
-import { UserRepository } from '../repositories/UserRepository';
 
 /**
  * RoomController - Controlador para rutas de salas
  * 
- * EXPLICACIÓN POO:
- * - SRP: Solo maneja peticiones HTTP de salas
- * - DEPENDENCY INJECTION: Recibe dependencias necesarias
- * - SEPARACIÓN DE RESPONSABILIDADES: No contiene lógica de negocio compleja
+ * EXPLICACIÓN POO Y SOLID:
+ * - HERENCIA: Extiende BaseController
+ * - DIP (Dependency Inversion Principle): Depende de IRoomManager e IUserRepository
+ * - SRP: Maneja peticiones HTTP de creación, unión y consulta de salas
  */
-export class RoomController {
-  private roomManager: RoomManager;
-  private userRepository: UserRepository;
+export class RoomController extends BaseController {
+  private roomManager: IRoomManager;
+  private userRepository: IUserRepository;
 
-  constructor(roomManager: RoomManager, userRepository: UserRepository) {
+  constructor(roomManager: IRoomManager, userRepository: IUserRepository) {
+    super('RoomController');
     this.roomManager = roomManager;
     this.userRepository = userRepository;
   }
 
-  /**
-   * GET /api/rooms
-   * Listar salas disponibles
-   */
   listRooms = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { mode, status } = req.query;
@@ -33,44 +31,34 @@ export class RoomController {
         status: status as GameStatus,
       });
 
-      res.json(rooms.map(room => room.toJSON()));
+      this.sendSuccess(res, rooms.map(room => room.toJSON()));
     } catch (error) {
-      next(error);
+      this.handleHttpError(res, error, 'Error listando salas');
     }
   };
 
-  /**
-   * GET /api/rooms/:roomId
-   * Obtener información de una sala específica
-   */
   getRoom = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const roomId = req.params.roomId as string;
-
       const room = this.roomManager.getRoom(roomId);
 
       if (!room) {
-        res.status(404).json({ error: 'Sala no encontrada' });
+        this.sendError(res, 'Sala no encontrada', 404);
         return;
       }
 
-      res.json(room.toJSON());
+      this.sendSuccess(res, room.toJSON());
     } catch (error) {
-      next(error);
+      this.handleHttpError(res, error, 'Error obteniendo sala');
     }
   };
 
-  /**
-   * POST /api/rooms
-   * Crear nueva sala
-   */
   createRoom = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { name, hostId, creator, maxPlayers, mode, difficulty, isPrivate, password } = req.body;
       const actualHostId = hostId || creator?.id || `user_${Date.now()}`;
       const actualName = name || `Sala de ${creator?.email?.split('@')[0] || 'Jugador'}`;
 
-      // Buscar usuario en base de datos si existe, o usar datos de sesión
       let user = null;
       try {
         user = await this.userRepository.findById(actualHostId);
@@ -81,7 +69,6 @@ export class RoomController {
       const hostName = user?.username || user?.email || creator?.email || 'Jugador';
       const hostLevel = user?.level || 1;
 
-      // Crear sala
       const room = this.roomManager.createRoom({
         name: actualName,
         code: req.body.code,
@@ -96,17 +83,12 @@ export class RoomController {
         password: isPrivate ? password : undefined,
       });
 
-      res.json(room.toJSON());
-
+      this.sendSuccess(res, room.toJSON());
     } catch (error) {
-      next(error);
+      this.handleHttpError(res, error, 'Error creando sala');
     }
   };
 
-  /**
-   * POST /api/rooms/:roomId/join
-   * Unirse a una sala
-   */
   joinRoom = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const roomId = req.params.roomId as string;
@@ -123,12 +105,11 @@ export class RoomController {
       const userName = user?.username || user?.email || player?.email || 'Jugador';
       const userLevel = user?.level || 1;
 
-      // Unirse a la sala
       const room = this.roomManager.joinRoom(
         roomId,
         {
           id: actualUserId,
-          socketId: '', // Se actualizará por socket
+          socketId: '',
           name: userName,
           level: userLevel,
           isReady: false,
@@ -139,148 +120,101 @@ export class RoomController {
         password
       );
 
-      res.json(room.toJSON());
+      this.sendSuccess(res, room.toJSON());
     } catch (error: any) {
-      if (error.message && error.message.includes('no encontrada')) {
-        res.status(404).json({ error: error.message });
-      } else if (error.message && error.message.includes('Contraseña')) {
-        res.status(403).json({ error: error.message });
-      } else if (error.message && (error.message.includes('llena') || error.message.includes('ya está'))) {
-        res.status(400).json({ error: error.message });
-      } else {
-        next(error);
-      }
+      this.handleHttpError(res, error, 'Error uniéndose a la sala');
     }
   };
 
-
-  /**
-   * POST /api/rooms/:roomId/leave
-   * Salir de una sala
-   */
   leaveRoom = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const roomId = req.params.roomId as string;
       const { userId } = req.body;
 
       this.roomManager.leaveRoom(roomId, userId);
-
       const room = this.roomManager.getRoom(roomId);
 
       if (!room) {
-        res.json({ message: 'Sala eliminada' });
+        this.sendSuccess(res, { message: 'Sala eliminada' });
         return;
       }
 
-      res.json(room.toJSON());
+      this.sendSuccess(res, room.toJSON());
     } catch (error) {
-      next(error);
+      this.handleHttpError(res, error, 'Error al salir de la sala');
     }
   };
 
-  /**
-   * PUT /api/rooms/:roomId/ready
-   * Marcar jugador como listo
-   */
   setReady = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const roomId = req.params.roomId as string;
       const { userId, isReady } = req.body;
 
       const room = this.roomManager.getRoom(roomId);
-
       if (!room) {
-        res.status(404).json({ error: 'Sala no encontrada' });
+        this.sendError(res, 'Sala no encontrada', 404);
         return;
       }
 
       room.setPlayerReady(userId, isReady);
-
-      res.json(room.toJSON());
+      this.sendSuccess(res, room.toJSON());
     } catch (error: any) {
-      if (error.message.includes('no encontrado')) {
-        res.status(404).json({ error: error.message });
-      } else {
-        next(error);
-      }
+      this.handleHttpError(res, error, 'Error al actualizar estado de listo');
     }
   };
 
-  /**
-   * PUT /api/rooms/:roomId/start
-   * Iniciar partida
-   */
   startGame = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const roomId = req.params.roomId as string;
       const { hostId, cards } = req.body;
 
       const room = this.roomManager.getRoom(roomId);
-
       if (!room) {
-        res.status(404).json({ error: 'Sala no encontrada' });
+        this.sendError(res, 'Sala no encontrada', 404);
         return;
       }
 
-      // Verificar que quien inicia es el host
       if (room.hostId !== hostId) {
-        res.status(403).json({ error: 'Solo el host puede iniciar la partida' });
+        this.sendError(res, 'Solo el host puede iniciar la partida', 403);
         return;
       }
 
-      // Iniciar el juego
       room.startGame(cards);
-
-      res.json(room.toJSON());
+      this.sendSuccess(res, room.toJSON());
     } catch (error: any) {
-      if (error.message.includes('listos') || error.message.includes('jugadores')) {
-        res.status(400).json({ error: error.message });
-      } else {
-        next(error);
-      }
+      this.handleHttpError(res, error, 'Error al iniciar juego en la sala');
     }
   };
 
-  /**
-   * DELETE /api/rooms/:roomId
-   * Eliminar sala (solo host)
-   */
   deleteRoom = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const roomId = req.params.roomId as string;
       const { hostId } = req.body;
 
       const room = this.roomManager.getRoom(roomId);
-
       if (!room) {
-        res.status(404).json({ error: 'Sala no encontrada' });
+        this.sendError(res, 'Sala no encontrada', 404);
         return;
       }
 
-      // Verificar que quien elimina es el host
       if (room.hostId !== hostId) {
-        res.status(403).json({ error: 'Solo el host puede eliminar la sala' });
+        this.sendError(res, 'Solo el host puede eliminar la sala', 403);
         return;
       }
 
       this.roomManager.deleteRoom(roomId);
-
-      res.json({ message: 'Sala eliminada correctamente' });
+      this.sendSuccess(res, { message: 'Sala eliminada correctamente' });
     } catch (error) {
-      next(error);
+      this.handleHttpError(res, error, 'Error al eliminar sala');
     }
   };
 
-  /**
-   * GET /api/rooms/stats
-   * Obtener estadísticas de salas
-   */
   getStats = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const stats = this.roomManager.getStats();
-      res.json(stats);
+      this.sendSuccess(res, stats);
     } catch (error) {
-      next(error);
+      this.handleHttpError(res, error, 'Error obteniendo estadísticas');
     }
   };
 }
