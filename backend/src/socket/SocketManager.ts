@@ -1,21 +1,35 @@
 import { Server, Socket } from 'socket.io';
 import { RoomManager } from '../managers/RoomManager';
+import { GameEngine } from '../engine/GameEngine';
+import { IGameCommand, ICommandOutcome } from '../engine/types';
 
 /**
  * SocketManager - Gestor de conexiones Socket.IO con POO
  * 
  * EXPLICACIÓN POO:
  * - ENCAPSULACIÓN: Agrupa toda la lógica de sockets
- * - SRP: Solo maneja eventos de socket
+ * - SRP: Solo maneja eventos de socket, delega lógica de juego al GameEngine
  * - DEPENDENCY INJECTION: Recibe RoomManager como dependencia
+ * - ABSTRACCIÓN: Traduce eventos de socket a comandos del motor
+ * 
+ * ARQUITECTURA:
+ * - Desacoplado del motor: no conoce reglas del juego
+ * - Solo traduce entre Socket.IO y GameEngine
+ * - El motor decide qué es válido, SocketManager solo transmite
  */
 export class SocketManager {
   private io: Server;
   private roomManager: RoomManager;
+  private gameEngine: GameEngine;
 
   constructor(io: Server, roomManager: RoomManager) {
     this.io = io;
     this.roomManager = roomManager;
+    
+    // Inicializar el motor de juego con callback para propagar eventos
+    this.gameEngine = new GameEngine((outcome: ICommandOutcome) => {
+      this.applyOutcome(outcome);
+    });
   }
 
   /**
@@ -139,20 +153,26 @@ export class SocketManager {
    */
   private registerGameEvents(socket: Socket): void {
     // Iniciar partida
-    socket.on('game:start', ({ roomId, cards }) => {
+    socket.on('game:start', async ({ roomId, userId }) => {
       try {
         const room = this.roomManager.getRoom(roomId);
-        if (!room) return;
+        
+        if (!room) {
+          socket.emit('game:error', { message: 'Sala no encontrada' });
+          return;
+        }
 
-        room.startGame(cards);
+        // Crear comando para el motor
+        const command: IGameCommand = {
+          type: 'start',
+          roomId,
+          userId,
+        };
 
-        this.io.to(roomId).emit('game:started', {
-          gameState: room.getGameState(),
-          cards,
-          firstTurn: room.getGameState().currentTurn,
-        });
+        // Procesar comando a través del motor (autoritativo)
+        await this.gameEngine.processCommand(command, room);
 
-        this.log(`Partida iniciada en sala ${roomId}`);
+        this.log(`Partida iniciada en sala ${roomId} vía motor`);
       } catch (error: any) {
         this.logError('game:start', error);
         socket.emit('game:error', { message: error.message });
@@ -160,25 +180,23 @@ export class SocketManager {
     });
 
     // Voltear carta
-    socket.on('game:flip-card', ({ roomId, userId, cardIndex }) => {
+    socket.on('game:flip-card', async ({ roomId, userId, cardIndex }) => {
       try {
         const room = this.roomManager.getRoom(roomId);
         if (!room) return;
 
-        room.flipCard(userId, cardIndex);
+        // Crear comando para el motor
+        const command: IGameCommand = {
+          type: 'flip',
+          roomId,
+          userId,
+          payload: { cardIndex },
+        };
 
-        this.io.to(roomId).emit('game:card-flipped', {
-          playerId: userId,
-          cardIndex,
-          flippedCards: room.getGameState().flippedCards,
-        });
+        // Procesar comando a través del motor (autoritativo)
+        // El motor manejará la evaluación automáticamente
+        await this.gameEngine.processCommand(command, room);
 
-        // Si se voltearon 2 cartas, verificar match
-        if (room.getGameState().flippedCards.length === 2) {
-          setTimeout(() => {
-            this.checkMatch(roomId, userId);
-          }, 1500);
-        }
       } catch (error: any) {
         this.logError('game:flip-card', error);
         socket.emit('game:error', { message: error.message });
@@ -210,56 +228,30 @@ export class SocketManager {
   }
 
   /**
-   * Verificar match de cartas
+   * ARQUITECTURA: Traducir resultado del motor a eventos Socket.IO
+   * 
+   * EXPLICACIÓN POO:
+   * - ABSTRACCIÓN: El motor NO conoce Socket.IO, devuelve ICommandOutcome
+   * - SRP: Este método solo traduce outcomes a eventos
+   * - INVERSIÓN DE DEPENDENCIAS: Motor depende de abstracción (callback), no de Socket.IO
+   * 
+   * @param outcome - Resultado del comando procesado por el motor
    */
-  private checkMatch(roomId: string, userId: string): void {
+  private applyOutcome(outcome: ICommandOutcome): void {
     try {
-      const room = this.roomManager.getRoom(roomId);
-      if (!room) return;
+      // El outcome puede tener roomId+event+payload o solo type (comandos internos)
+      const { roomId, event, payload, type } = outcome;
 
-      const { isMatch, card1Index, card2Index } = room.checkMatch();
-
-      if (isMatch) {
-        // Match encontrado
-        room.registerMatch(userId, card1Index, card2Index);
-
-        this.io.to(roomId).emit('game:match-found', {
-          playerId: userId,
-          cardIndexes: [card1Index, card2Index],
-          matchedCards: room.getGameState().matchedCards,
-          scores: Object.fromEntries(room.getGameState().scores),
-        });
-
-        // Verificar si el juego terminó
-        if (room.isGameFinished()) {
-          const winnerId = room.finishGame();
-
-          this.io.to(roomId).emit('game:finished', {
-            winnerId,
-            scores: Object.fromEntries(room.getGameState().scores),
-            players: room.getPlayers().map(p => p.toJSON()),
-          });
-
-          this.log(`Partida terminada en sala ${roomId}. Ganador: ${winnerId}`);
-        }
-      } else {
-        // No hay match
-        this.io.to(roomId).emit('game:no-match', {
-          cardIndexes: [card1Index, card2Index],
-        });
-
-        // Cambiar turno
-        const nextTurn = room.nextTurn();
-
-        this.io.to(roomId).emit('game:turn-changed', {
-          currentTurn: nextTurn,
-        });
+      // Si tiene roomId y event, es un evento para propagar
+      if (roomId && event) {
+        this.io.to(roomId).emit(event, payload);
+        this.log(`Evento ${event} enviado a sala ${roomId}`);
+      } else if (type) {
+        // Comandos internos sin roomId específico (ej: errors de validación)
+        this.log(`Outcome interno: ${type}`);
       }
-
-      // Limpiar cartas volteadas
-      room.clearFlippedCards();
     } catch (error: any) {
-      this.logError('checkMatch', error);
+      this.logError('applyOutcome', error);
     }
   }
 

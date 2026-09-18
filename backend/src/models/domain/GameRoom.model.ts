@@ -1,9 +1,15 @@
+import { BaseEntity } from '../../core/BaseEntity';
+import { IGameModeStrategy, ICard } from '../../core/interfaces/IGameModeStrategy';
+import { GameModeFactory } from '../strategies/GameModeFactory';
+
 /**
  * GameRoom Domain Model - Modelo de dominio para Salas de Juego
  * 
  * EXPLICACIÓN POO:
  * - ENCAPSULACIÓN: Agrupa todos los datos y comportamientos de una sala
  * - ABSTRACCIÓN: Representa el concepto de "Sala de Juego"
+ * - HERENCIA: Extiende BaseEntity para reutilizar identidad y timestamps
+ * - POLIMORFISMO: Usa IGameModeStrategy para delegar reglas del juego
  * - ESTADO: Mantiene el estado de la sala y sus jugadores
  */
 
@@ -28,7 +34,7 @@ export interface IGameState {
   status: GameStatus;
   currentRound: number;
   totalRounds: number;
-  cards: any[];
+  cards: ICard[];  // ← Ahora usa ICard de la estrategia
   flippedCards: number[];
   matchedCards: number[];
   currentTurn: string | null;
@@ -124,9 +130,9 @@ export class Player implements IPlayer {
 
 /**
  * Clase GameRoom - Representa una sala de juego completa
+ * Hereda de BaseEntity para reutilizar identidad y auditoría temporal
  */
-export class GameRoom {
-  readonly id: string;
+export class GameRoom extends BaseEntity<any> {
   name: string;
   hostId: string;
   hostName: string;
@@ -135,13 +141,15 @@ export class GameRoom {
   difficulty: string;
   isPrivate: boolean;
   password?: string;
-  readonly createdAt: Date;
 
   private players: Map<string, Player>;
   private gameState: IGameState;
+  private strategy: IGameModeStrategy; // ← Estrategia polimórfica
 
   constructor(data: IGameRoomData) {
-    this.id = data.id;
+    // Llamar al constructor padre
+    super(data.id, data.createdAt);
+    
     this.name = data.name;
     this.hostId = data.hostId;
     this.hostName = data.hostName;
@@ -150,7 +158,9 @@ export class GameRoom {
     this.difficulty = data.difficulty;
     this.isPrivate = data.isPrivate;
     this.password = data.password;
-    this.createdAt = data.createdAt;
+
+    // Inicializar estrategia según el modo
+    this.strategy = GameModeFactory.getStrategy(data.mode);
 
     this.players = new Map();
     this.gameState = {
@@ -273,13 +283,24 @@ export class GameRoom {
     return { ...this.gameState };
   }
 
+  /**
+   * Obtiene el número de cartas requeridas para este modo
+   * Delega a la estrategia (POLIMORFISMO)
+   */
+  getRequiredFlipsCount(): number {
+    return this.strategy.requiredFlips;
+  }
+
   flipCard(playerId: string, cardIndex: number): void {
     if (this.gameState.currentTurn !== playerId) {
       throw new Error('No es tu turno');
     }
 
-    if (this.gameState.flippedCards.length >= 2) {
-      throw new Error('Ya hay 2 cartas volteadas');
+    // Usar la estrategia para obtener el límite (POLIMORFISMO)
+    const required = this.getRequiredFlipsCount();
+    
+    if (this.gameState.flippedCards.length >= required) {
+      throw new Error(`Ya hay ${required} cartas volteadas`);
     }
 
     if (this.gameState.flippedCards.includes(cardIndex) ||
@@ -290,24 +311,34 @@ export class GameRoom {
     this.gameState.flippedCards.push(cardIndex);
   }
 
+  /**
+   * Verifica si las cartas volteadas forman un match
+   * Delega a la estrategia (POLIMORFISMO)
+   */
   checkMatch(): { isMatch: boolean; card1Index: number; card2Index: number } {
-    if (this.gameState.flippedCards.length !== 2) {
-      throw new Error('No hay 2 cartas volteadas');
+    const required = this.getRequiredFlipsCount();
+    
+    if (this.gameState.flippedCards.length !== required) {
+      throw new Error(`No hay ${required} cartas volteadas`);
     }
 
-    const [card1Idx, card2Idx] = this.gameState.flippedCards;
-    const card1 = this.gameState.cards[card1Idx];
-    const card2 = this.gameState.cards[card2Idx];
+    // Delegar a la estrategia para verificar el match (POLIMORFISMO)
+    const result = this.strategy.checkMatch(
+      this.gameState.cards,
+      this.gameState.flippedCards
+    );
 
+    // Retornar en formato compatible con código existente
     return {
-      isMatch: card1.id === card2.id,
-      card1Index: card1Idx,
-      card2Index: card2Idx,
+      isMatch: result.isMatch,
+      card1Index: this.gameState.flippedCards[0],
+      card2Index: this.gameState.flippedCards[1] || this.gameState.flippedCards[0],
     };
   }
 
-  registerMatch(playerId: string, card1Index: number, card2Index: number): void {
-    this.gameState.matchedCards.push(card1Index, card2Index);
+  registerMatch(playerId: string, ...cardIndexes: number[]): void {
+    // Agregar todas las cartas matched
+    this.gameState.matchedCards.push(...cardIndexes);
     
     const currentScore = this.gameState.scores.get(playerId) || 0;
     this.gameState.scores.set(playerId, currentScore + 1);

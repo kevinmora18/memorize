@@ -1,4 +1,5 @@
 import { BaseService } from '../core/BaseService';
+import { IUserService } from '../core/interfaces/IServices';
 import { UserRepository } from '../repositories/UserRepository';
 import { PlayerStatsRepository } from '../repositories/PlayerStatsRepository';
 import { User } from '../models/domain/User.model';
@@ -12,8 +13,9 @@ import { PlayerStats } from '../models/domain/PlayerStats.model';
  * - SRP: Solo maneja lógica de usuarios
  * - DEPENDENCY INJECTION: Recibe repositorios como dependencias
  * - COMPOSICIÓN: Usa múltiples repositorios para operaciones complejas
+ * - ISP: Implementa únicamente IUserService
  */
-export class UserService extends BaseService {
+export class UserService extends BaseService implements IUserService {
   private userRepository: UserRepository;
   private statsRepository: PlayerStatsRepository;
 

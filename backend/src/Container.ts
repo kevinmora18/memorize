@@ -7,6 +7,13 @@ import { AuthController } from './controllers/AuthController';
 import { RoomController } from './controllers/RoomController';
 import { UserController } from './controllers/UserController';
 import { RoomManager } from './managers/RoomManager';
+import { GameEngine } from './engine/GameEngine';
+import { GameModeFactory } from './models/strategies/GameModeFactory';
+import { 
+  PairsModeStrategy, 
+  TriadsModeStrategy, 
+  BossModeStrategy 
+} from './models/strategies';
 
 /**
  * Container - Contenedor de Inyección de Dependencias
@@ -15,12 +22,19 @@ import { RoomManager } from './managers/RoomManager';
  * - DEPENDENCY INJECTION: Centraliza la creación de todas las dependencias
  * - SINGLETON: Usa el patrón singleton para servicios compartidos
  * - INVERSION OF CONTROL: Las clases no crean sus dependencias, las reciben
+ * - FACTORY PATTERN: Registra estrategias de juego en GameModeFactory
+ * 
+ * ARQUITECTURA POO APLICADA:
+ * - Motor de Juego (GameEngine): Gestiona lógica de partida autoritativa
+ * - Estrategias Polimórficas: PairsModeStrategy, TriadsModeStrategy, BossModeStrategy
+ * - Factory Pattern: GameModeFactory para gestión de modos de juego
  * 
  * VENTAJAS:
  * - Facilita testing (podemos inyectar mocks)
  * - Desacopla componentes
  * - Facilita cambios (cambiar implementaciones sin tocar código)
  * - Centraliza configuración
+ * - OCP: Nuevas estrategias se registran sin modificar código existente
  */
 export class Container {
   private static instance: Container;
@@ -28,6 +42,7 @@ export class Container {
   // Clientes y managers compartidos
   public prisma: PrismaClient;
   public roomManager: RoomManager;
+  public gameEngine: GameEngine;
 
   // Repositorios
   public userRepository: UserRepository;
@@ -56,21 +71,41 @@ export class Container {
     this.roomManager = RoomManager.getInstance();
 
     // ============================================
-    // 2. REPOSITORIOS (necesitan prisma)
+    // 2. ESTRATEGIAS DE JUEGO (Factory Pattern)
+    // ============================================
+    console.log('  🎯 Registrando estrategias de juego...');
+    this.initializeGameStrategies();
+
+    // ============================================
+    // 3. MOTOR DE JUEGO
+    // ============================================
+    console.log('  🎮 Creando motor de juego...');
+    // El GameEngine se inicializa con callback en SocketManager
+    // Aquí solo creamos una instancia por defecto para testing/future use
+    this.gameEngine = new GameEngine((outcome) => {
+      if (outcome.event) {
+        console.log(`[GameEngine] Outcome: ${outcome.event}`);
+      } else if (outcome.type) {
+        console.log(`[GameEngine] Outcome: ${outcome.type}`);
+      }
+    });
+
+    // ============================================
+    // 4. REPOSITORIOS (necesitan prisma)
     // ============================================
     console.log('  🗄️  Creando repositorios...');
     this.userRepository = new UserRepository(this.prisma);
     this.statsRepository = new PlayerStatsRepository(this.prisma);
 
     // ============================================
-    // 3. SERVICIOS (necesitan repositorios)
+    // 5. SERVICIOS (necesitan repositorios)
     // ============================================
     console.log('  ⚙️  Creando servicios...');
     this.authService = new AuthService(this.userRepository);
     this.userService = new UserService(this.userRepository, this.statsRepository);
 
     // ============================================
-    // 4. CONTROLADORES (necesitan servicios)
+    // 6. CONTROLADORES (necesitan servicios)
     // ============================================
     console.log('  🎮 Creando controladores...');
     this.authController = new AuthController(this.authService);
@@ -78,6 +113,29 @@ export class Container {
     this.userController = new UserController(this.userService);
 
     console.log('\n✅ Container inicializado con todas las dependencias\n');
+  }
+
+  /**
+   * Inicializar estrategias de juego (POLIMORFISMO + OCP)
+   * 
+   * EXPLICACIÓN POO:
+   * - STRATEGY PATTERN: Cada modo de juego es una estrategia diferente
+   * - FACTORY PATTERN: GameModeFactory gestiona el registro
+   * - OCP: Para agregar un nuevo modo, solo registramos la estrategia aquí
+   * - POLIMORFISMO: Todas implementan IGameModeStrategy
+   */
+  private initializeGameStrategies(): void {
+    const pairsStrategy = new PairsModeStrategy();
+    const triadsStrategy = new TriadsModeStrategy();
+    const bossStrategy = new BossModeStrategy();
+
+    GameModeFactory.registerStrategy('classic', pairsStrategy);
+    GameModeFactory.registerStrategy('triads', triadsStrategy);
+    GameModeFactory.registerStrategy('boss', bossStrategy);
+
+    console.log(`    ✓ Estrategia registrada: ${pairsStrategy.name}`);
+    console.log(`    ✓ Estrategia registrada: ${triadsStrategy.name}`);
+    console.log(`    ✓ Estrategia registrada: ${bossStrategy.name}`);
   }
 
   /**

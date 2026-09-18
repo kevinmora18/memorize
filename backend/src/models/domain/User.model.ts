@@ -165,6 +165,56 @@ export class User implements IUser {
   }
 
   /**
+   * Aplica un baneo al usuario
+   * @param reason Razón del baneo
+   * @param durationMinutes Duración en minutos (undefined para permanente)
+   */
+  applyBan(reason: string, durationMinutes?: number): void {
+    this.isBanned = true;
+    this.banReason = reason;
+    
+    if (durationMinutes !== undefined) {
+      const bannedUntil = new Date();
+      bannedUntil.setMinutes(bannedUntil.getMinutes() + durationMinutes);
+      this.bannedUntil = bannedUntil;
+    } else {
+      // Baneo permanente
+      this.bannedUntil = null;
+    }
+    
+    this.updatedAt = new Date();
+  }
+
+  /**
+   * Remueve el baneo del usuario
+   */
+  removeBan(): void {
+    this.isBanned = false;
+    this.bannedUntil = null;
+    this.banReason = null;
+    this.updatedAt = new Date();
+  }
+
+  /**
+   * Establece la moneda del usuario (setter administrativo)
+   * @param coins Nueva cantidad de monedas (opcional)
+   * @param gems Nueva cantidad de gemas (opcional)
+   */
+  setCurrency(coins?: number, gems?: number): void {
+    if (coins !== undefined) {
+      if (coins < 0) throw new Error('Las monedas no pueden ser negativas');
+      this.coins = coins;
+    }
+    
+    if (gems !== undefined) {
+      if (gems < 0) throw new Error('Las gemas no pueden ser negativas');
+      this.gems = gems;
+    }
+    
+    this.updatedAt = new Date();
+  }
+
+  /**
    * Convierte a objeto plano (para enviar en respuestas)
    */
   toJSON(): IUser {

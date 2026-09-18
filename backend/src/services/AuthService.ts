@@ -1,4 +1,5 @@
 import { BaseService } from '../core/BaseService';
+import { IAuthService } from '../core/interfaces/IServices';
 import { UserRepository } from '../repositories/UserRepository';
 import { User } from '../models/domain/User.model';
 
@@ -10,8 +11,9 @@ import { User } from '../models/domain/User.model';
  * - SRP: Solo maneja lógica de autenticación
  * - DEPENDENCY INJECTION: Recibe el repositorio como dependencia
  * - ENCAPSULACIÓN: Oculta la lógica de negocio de autenticación
+ * - ISP: Implementa únicamente IAuthService
  */
-export class AuthService extends BaseService {
+export class AuthService extends BaseService implements IAuthService {
   private userRepository: UserRepository;
 
   constructor(userRepository: UserRepository) {
